@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { StoryFormat } from "@/lib/types";
+import { useAuthStore } from "@/store/auth-store";
+import { createStory, createChapter, saveChapterContent, generateSlug } from "@/lib/supabase/queries";
 import {
   Download,
   Image,
@@ -16,6 +19,7 @@ import {
   Upload,
   AlertCircle,
   X,
+  Loader2,
 } from "lucide-react";
 
 type ImportStep = "input" | "preview" | "review";
@@ -38,6 +42,8 @@ interface GalleryData {
 }
 
 export default function ImportPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [step, setStep] = useState<ImportStep>("input");
   const [url, setUrl] = useState("");
   const [format, setFormat] = useState<StoryFormat>("chat");
@@ -96,13 +102,94 @@ export default function ImportPage() {
     return gallery?.images.filter((img) => img.selected) || [];
   }
 
-  function handlePublish(asDraft: boolean) {
+  async function handlePublish(asDraft: boolean) {
+    if (!gallery || !user) return;
     setPublishing(true);
-    // TODO: wire up real story creation with selected images
-    setTimeout(() => {
+    setError("");
+
+    try {
+      const selected = selectedImages();
+
+      // Create the story
+      const story = await createStory({
+        creator_id: user.id,
+        title: gallery.title,
+        slug: generateSlug(gallery.title),
+        description: `Imported from imgchest (${selected.length} images)`,
+        format,
+        category_id: "other",
+        status: asDraft ? "draft" : "published",
+        is_gated: false,
+      });
+
+      if (!story) throw new Error("Failed to create story");
+
+      // Create a single chapter with all the media
+      const chapter = await createChapter({
+        story_id: story.id,
+        chapter_number: 1,
+        title: "Chapter 1",
+        status: asDraft ? "draft" : "published",
+      });
+
+      if (!chapter) throw new Error("Failed to create chapter");
+
+      // Build content JSON based on format
+      let contentJson: unknown;
+
+      if (format === "chat") {
+        // Chat format: each image becomes a message
+        const characters = [
+          { id: "char-1", name: "Character 1", color: "#3B82F6", alignment: "left" as const },
+          { id: "char-2", name: "Character 2", color: "#10B981", alignment: "right" as const },
+        ];
+        const messages = selected.map((media, i) => ({
+          id: `msg-${i}`,
+          character_id: i % 2 === 0 ? "char-1" : "char-2",
+          text: media.description || "",
+          media_url: media.url,
+          media_type: media.type,
+        }));
+        contentJson = { characters, messages };
+      } else {
+        // Prose format: TipTap JSON with image nodes
+        const content: Array<Record<string, unknown>> = [];
+        for (const media of selected) {
+          if (media.type === "video") {
+            // Add video as a paragraph with link
+            content.push({
+              type: "paragraph",
+              content: [{ type: "text", text: `[Video: ${media.url}]` }],
+            });
+          } else {
+            content.push({
+              type: "image",
+              attrs: { src: media.url, alt: media.description || "" },
+            });
+          }
+          if (media.description) {
+            content.push({
+              type: "paragraph",
+              content: [{ type: "text", text: media.description }],
+            });
+          }
+        }
+        contentJson = { type: "doc", content };
+      }
+
+      await saveChapterContent(chapter.id, contentJson);
+
       setPublishing(false);
       setPublished(true);
-    }, 1500);
+
+      // Redirect to dashboard after a brief delay
+      setTimeout(() => {
+        router.push("/dashboard/stories");
+      }, 1500);
+    } catch (err) {
+      setPublishing(false);
+      setError(err instanceof Error ? err.message : "Failed to create story");
+    }
   }
 
   function handleReset() {
@@ -411,6 +498,13 @@ export default function ImportPage() {
                   )}
                 </div>
 
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">
+                    <AlertCircle size={16} />
+                    {error}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
                   <Button
                     variant="secondary"
@@ -424,6 +518,7 @@ export default function ImportPage() {
                     size="sm"
                     onClick={() => handlePublish(false)}
                     loading={publishing}
+                    disabled={!user}
                   >
                     <Upload size={14} />
                     Publish
@@ -433,6 +528,7 @@ export default function ImportPage() {
                     size="sm"
                     onClick={() => handlePublish(true)}
                     loading={publishing}
+                    disabled={!user}
                   >
                     <FileText size={14} />
                     Save as Draft
