@@ -1,0 +1,366 @@
+import { createClient } from "./client";
+
+// ============================================================
+// CATEGORIES
+// ============================================================
+
+export async function getCategories() {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
+  return data || [];
+}
+
+// ============================================================
+// STORIES
+// ============================================================
+
+export async function getPublishedStories(options?: {
+  category?: string;
+  format?: string;
+  sort?: string;
+  search?: string;
+  limit?: number;
+}) {
+  const supabase = createClient();
+  if (!supabase) return [];
+
+  let query = supabase
+    .from("stories")
+    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified)")
+    .eq("status", "published");
+
+  if (options?.category && options.category !== "all") {
+    query = query.eq("category_id", options.category);
+  }
+
+  if (options?.format && options.format !== "all") {
+    query = query.eq("format", options.format);
+  }
+
+  if (options?.search) {
+    query = query.textSearch("fts", options.search);
+  }
+
+  switch (options?.sort) {
+    case "newest":
+      query = query.order("created_at", { ascending: false });
+      break;
+    case "most-tipped":
+      query = query.order("tip_total", { ascending: false });
+      break;
+    default: // trending
+      query = query.order("view_count", { ascending: false });
+      break;
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data } = await query;
+  return data || [];
+}
+
+export async function getStoryBySlug(slug: string) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("stories")
+    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, bio, is_verified, follower_count, story_count, created_at)")
+    .eq("slug", slug)
+    .single();
+  return data;
+}
+
+export async function getStoriesByCreator(creatorId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("stories")
+    .select("*, category:categories(*)")
+    .eq("creator_id", creatorId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+export async function getMyStories(creatorId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("stories")
+    .select("*, category:categories(*)")
+    .eq("creator_id", creatorId)
+    .order("updated_at", { ascending: false });
+  return data || [];
+}
+
+export async function createStory(story: {
+  creator_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  format: "prose" | "chat";
+  category_id: string;
+  status: "draft" | "published";
+  is_gated: boolean;
+  cover_image_url?: string;
+}) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("stories")
+    .insert(story)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateStory(id: string, updates: Record<string, unknown>) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("stories")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteStory(id: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase.from("stories").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ============================================================
+// CHAPTERS
+// ============================================================
+
+export async function getChapters(storyId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("chapters")
+    .select("*")
+    .eq("story_id", storyId)
+    .order("chapter_number");
+  return data || [];
+}
+
+export async function getChapterWithContent(storyId: string, chapterNumber: number) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("*, content:chapter_content(content_json)")
+    .eq("story_id", storyId)
+    .eq("chapter_number", chapterNumber)
+    .single();
+  return chapter;
+}
+
+export async function createChapter(chapter: {
+  story_id: string;
+  chapter_number: number;
+  title: string;
+  status: "draft" | "published";
+}) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("chapters")
+    .insert(chapter)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateChapter(id: string, updates: Record<string, unknown>) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("chapters")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function saveChapterContent(chapterId: string, contentJson: unknown) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("chapter_content")
+    .upsert({ chapter_id: chapterId, content_json: contentJson }, { onConflict: "chapter_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================
+// PROFILES
+// ============================================================
+
+export async function getProfileByUsername(username: string) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("username", username)
+    .single();
+  return data;
+}
+
+export async function updateProfile(id: string, updates: Record<string, unknown>) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================
+// BOOKMARKS
+// ============================================================
+
+export async function getBookmarks(userId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("bookmarks")
+    .select("*, story:stories(*, creator:profiles!creator_id(id, username, display_name, avatar_url))")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+export async function addBookmark(userId: string, storyId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("bookmarks")
+    .upsert({ user_id: userId, story_id: storyId }, { onConflict: "user_id,story_id" });
+  if (error) throw error;
+}
+
+export async function removeBookmark(userId: string, storyId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("bookmarks")
+    .delete()
+    .eq("user_id", userId)
+    .eq("story_id", storyId);
+  if (error) throw error;
+}
+
+export async function updateBookmarkProgress(userId: string, storyId: string, chapterId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  await supabase
+    .from("bookmarks")
+    .update({ last_read_chapter_id: chapterId })
+    .eq("user_id", userId)
+    .eq("story_id", storyId);
+}
+
+// ============================================================
+// COMMENTS
+// ============================================================
+
+export async function getComments(storyId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("comments")
+    .select("*, user:profiles!user_id(id, username, display_name, avatar_url)")
+    .eq("story_id", storyId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+export async function addComment(comment: { story_id: string; chapter_id?: string; user_id: string; body: string }) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("comments")
+    .insert(comment)
+    .select("*, user:profiles!user_id(id, username, display_name, avatar_url)")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================
+// READING HISTORY
+// ============================================================
+
+export async function getReadingHistory(userId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("reading_history")
+    .select("*, story:stories(*, creator:profiles!creator_id(id, username, display_name, avatar_url)), chapter:chapters(id, title, chapter_number)")
+    .eq("user_id", userId)
+    .order("read_at", { ascending: false })
+    .limit(50);
+  return data || [];
+}
+
+export async function recordReading(userId: string, storyId: string, chapterId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  await supabase
+    .from("reading_history")
+    .upsert(
+      { user_id: userId, story_id: storyId, chapter_id: chapterId, read_at: new Date().toISOString() },
+      { onConflict: "user_id,story_id,chapter_id" }
+    );
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+
+export async function searchStories(query: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("stories")
+    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+    .eq("status", "published")
+    .textSearch("fts", query)
+    .limit(20);
+  return data || [];
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+export function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .slice(0, 80)
+    + "-" + Math.random().toString(36).slice(2, 8);
+}

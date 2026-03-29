@@ -1,32 +1,37 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { mockStories, mockCategories } from "@/lib/mock-data";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/constants";
 import { formatNumber } from "@/lib/utils";
 import { StoryCard } from "@/components/story/story-card";
 import { Button } from "@/components/ui/button";
+import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
 import {
-  Flame,
-  Clock,
-  Grid3X3,
-  PenTool,
-  ArrowRight,
-  BookOpen,
-  MessageSquare,
-  DollarSign,
-  Users,
+  Flame, Clock, Grid3X3, PenTool, ArrowRight, BookOpen, MessageSquare, DollarSign, Users,
 } from "lucide-react";
 
-const trendingStories = [...mockStories]
-  .sort((a, b) => b.view_count - a.view_count)
-  .slice(0, 6);
-
-const latestStories = [...mockStories]
-  .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-  .slice(0, 5);
-
 export default function HomePage() {
+  const [trendingStories, setTrendingStories] = useState<any[]>([]);
+  const [latestStories, setLatestStories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const [trending, latest, cats] = await Promise.all([
+        getPublishedStories({ sort: "trending", limit: 6 }),
+        getPublishedStories({ sort: "newest", limit: 5 }),
+        getCategories(),
+      ]);
+      setTrendingStories(trending);
+      setLatestStories(latest);
+      setCategories(cats);
+      setLoaded(true);
+    }
+    load();
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -49,7 +54,7 @@ export default function HomePage() {
                   Browse Stories
                 </Button>
               </Link>
-              <Link href="/dashboard">
+              <Link href="/signup">
                 <Button variant="secondary" size="lg">
                   <PenTool size={18} />
                   Start Writing
@@ -59,7 +64,7 @@ export default function HomePage() {
             <div className="mt-12 flex flex-wrap gap-x-8 gap-y-3 text-sm text-muted">
               <span className="flex items-center gap-2">
                 <BookOpen size={16} className="text-accent" />
-                {mockStories.length}+ stories
+                Community-driven stories
               </span>
               <span className="flex items-center gap-2">
                 <Users size={16} className="text-accent" />
@@ -75,74 +80,89 @@ export default function HomePage() {
       </section>
 
       {/* Trending Section */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Flame size={24} className="text-accent" />
-            <h2 className="text-2xl sm:text-3xl font-bold">Trending</h2>
-          </div>
-          <Link
-            href="/browse?sort=trending"
-            className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1"
-          >
-            View all <ArrowRight size={14} />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trendingStories.map((story) => (
-            <StoryCard key={story.id} story={story} />
-          ))}
-        </div>
-      </section>
-
-      {/* Latest Updates Section */}
-      <section className="bg-surface border-y border-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+      {loaded && trendingStories.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <Clock size={24} className="text-accent" />
-              <h2 className="text-2xl sm:text-3xl font-bold">Latest Updates</h2>
+              <Flame size={24} className="text-accent" />
+              <h2 className="text-2xl sm:text-3xl font-bold">Trending</h2>
             </div>
-            <Link
-              href="/browse?sort=newest"
-              className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1"
-            >
+            <Link href="/browse?sort=trending" className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
               View all <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="space-y-1">
-            {latestStories.map((story) => (
-              <StoryCard key={story.id} story={story} variant="compact" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {trendingStories.map((story: any) => (
+              <StoryCard key={story.id} story={story} />
             ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Latest Updates Section */}
+      {loaded && latestStories.length > 0 && (
+        <section className="bg-surface border-y border-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <Clock size={24} className="text-accent" />
+                <h2 className="text-2xl sm:text-3xl font-bold">Latest Updates</h2>
+              </div>
+              <Link href="/browse?sort=newest" className="text-sm text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+                View all <ArrowRight size={14} />
+              </Link>
+            </div>
+            <div className="space-y-1">
+              {latestStories.map((story: any) => (
+                <StoryCard key={story.id} story={story} variant="compact" />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Empty state for new platform */}
+      {loaded && trendingStories.length === 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <BookOpen size={48} className="text-muted mx-auto mb-4 opacity-40" />
+          <h2 className="text-2xl font-bold mb-2">No stories yet</h2>
+          <p className="text-muted mb-6">Be the first to publish a story on {PLATFORM_NAME}.</p>
+          <Link href="/signup">
+            <Button size="lg">
+              <PenTool size={18} />
+              Start Writing
+            </Button>
+          </Link>
+        </section>
+      )}
 
       {/* Browse by Category Section */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Grid3X3 size={24} className="text-accent" />
-            <h2 className="text-2xl sm:text-3xl font-bold">Browse by Category</h2>
+      {loaded && categories.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <Grid3X3 size={24} className="text-accent" />
+              <h2 className="text-2xl sm:text-3xl font-bold">Browse by Category</h2>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {mockCategories.map((category) => (
-            <Link
-              key={category.id}
-              href={`/browse/${category.slug}`}
-              className="group block p-4 sm:p-5 bg-surface border border-border rounded-xl hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all"
-            >
-              <h3 className="font-semibold group-hover:text-accent transition-colors">
-                {category.name}
-              </h3>
-              <p className="text-sm text-muted mt-1">
-                {formatNumber(category.story_count)} stories
-              </p>
-            </Link>
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {categories.map((category: any) => (
+              <Link
+                key={category.id}
+                href={`/browse/${category.slug}`}
+                className="group block p-4 sm:p-5 bg-surface border border-border rounded-xl hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all"
+              >
+                <h3 className="font-semibold group-hover:text-accent transition-colors">
+                  {category.name}
+                </h3>
+                <p className="text-sm text-muted mt-1">
+                  {formatNumber(category.story_count)} stories
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* For Creators Section */}
       <section className="bg-gradient-to-br from-accent/5 via-accent/10 to-accent/5 border-y border-border">
@@ -163,27 +183,21 @@ export default function HomePage() {
               <div className="bg-surface/80 backdrop-blur border border-border rounded-xl p-5">
                 <BookOpen size={20} className="text-accent mb-3" />
                 <h3 className="font-semibold text-sm">Two Formats</h3>
-                <p className="text-sm text-muted mt-1">
-                  Rich prose editor or interactive chat-bubble stories
-                </p>
+                <p className="text-sm text-muted mt-1">Rich prose editor or interactive chat-bubble stories</p>
               </div>
               <div className="bg-surface/80 backdrop-blur border border-border rounded-xl p-5">
                 <DollarSign size={20} className="text-accent mb-3" />
                 <h3 className="font-semibold text-sm">Monetization</h3>
-                <p className="text-sm text-muted mt-1">
-                  Tips, subscriptions, and gated content -- you set the price
-                </p>
+                <p className="text-sm text-muted mt-1">Tips, subscriptions, and gated content -- you set the price</p>
               </div>
               <div className="bg-surface/80 backdrop-blur border border-border rounded-xl p-5">
                 <MessageSquare size={20} className="text-accent mb-3" />
                 <h3 className="font-semibold text-sm">Community</h3>
-                <p className="text-sm text-muted mt-1">
-                  Comments, analytics, and direct connection with your readers
-                </p>
+                <p className="text-sm text-muted mt-1">Comments, analytics, and direct connection with your readers</p>
               </div>
             </div>
             <div className="mt-10">
-              <Link href="/dashboard">
+              <Link href="/signup">
                 <Button size="lg">
                   Start Creating
                   <ArrowRight size={18} />

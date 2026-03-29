@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   MessageCircle,
@@ -15,6 +16,7 @@ import {
   Calendar,
   Settings,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, generateId } from "@/lib/utils";
@@ -27,11 +29,21 @@ import { Badge } from "@/components/ui/badge";
 import { MediaUpload } from "@/components/editor/media-upload";
 import { ProseEditor } from "@/components/editor/prose-editor";
 import { ChatEditor } from "@/components/editor/chat-editor";
+import { useAuthStore } from "@/store/auth-store";
+import {
+  createStory,
+  createChapter,
+  saveChapterContent,
+  updateStory,
+  updateChapter,
+  generateSlug,
+} from "@/lib/supabase/queries";
 import type { StoryFormat, Chapter, ChatContent } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
 
 interface ChapterDraft {
   id: string;
+  dbId?: string; // Supabase chapter ID once persisted
   title: string;
   chapterNumber: number;
   proseContent?: JSONContent;
@@ -39,6 +51,9 @@ interface ChapterDraft {
 }
 
 export default function NewStoryPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
+
   // Step management
   const [step, setStep] = useState<1 | 2>(1);
   const [showPreview, setShowPreview] = useState(false);
@@ -52,6 +67,11 @@ export default function NewStoryPage() {
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+
+  // DB-persisted story ID (set after first save)
+  const [storyId, setStoryId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   // Chapters (Step 2)
   const [chapters, setChapters] = useState<ChapterDraft[]>([
@@ -81,12 +101,30 @@ export default function NewStoryPage() {
 
   // ── Chapter management ──
 
-  const addChapter = () => {
+  const addChapter = async () => {
     const newChapter: ChapterDraft = {
       id: generateId(),
       title: `Chapter ${chapters.length + 1}`,
       chapterNumber: chapters.length + 1,
     };
+
+    // If story is already saved, create chapter in DB
+    if (storyId) {
+      try {
+        const created = await createChapter({
+          story_id: storyId,
+          chapter_number: newChapter.chapterNumber,
+          title: newChapter.title,
+          status: "draft",
+        });
+        if (created) {
+          newChapter.dbId = created.id;
+        }
+      } catch (e) {
+        // Chapter still added locally; will be persisted on next save
+      }
+    }
+
     setChapters([...chapters, newChapter]);
     setActiveChapterId(newChapter.id);
   };
@@ -144,6 +182,117 @@ export default function NewStoryPage() {
     [activeChapterId]
   );
 
+  // ── Save / Publish handlers ──
+
+  const handleCreateStoryAndProceed = async () => {
+    if (!user || !title.trim()) return;
+    setSaving(true);
+    try {
+      const story = await createStory({
+        creator_id: user.id,
+        title: title.trim(),
+        slug: generateSlug(title.trim()),
+        description: description.trim(),
+        format,
+        category_id: categoryId || null!,
+        status: "draft",
+        is_gated: isGated,
+        cover_image_url: coverImageUrl || undefined,
+      });
+      if (!story) throw new Error("Failed to create story");
+      setStoryId(story.id);
+
+      // Create the first chapter in DB
+      const ch = await createChapter({
+        story_id: story.id,
+        chapter_number: 1,
+        title: chapters[0].title,
+        status: "draft",
+      });
+      if (ch) {
+        setChapters((prev) =>
+          prev.map((c, i) => (i === 0 ? { ...c, dbId: ch.id } : c))
+        );
+      }
+
+      setStep(2);
+    } catch (e: any) {
+      alert(e?.message || "Failed to create story");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!storyId) return;
+    setSaving(true);
+    try {
+      // Ensure all chapters exist in DB and save their content
+      for (const ch of chapters) {
+        let dbId = ch.dbId;
+
+        // Create chapter in DB if it doesn't have a dbId yet
+        if (!dbId) {
+          const created = await createChapter({
+            story_id: storyId,
+            chapter_number: ch.chapterNumber,
+            title: ch.title,
+            status: "draft",
+          });
+          if (created) {
+            dbId = created.id;
+            setChapters((prev) =>
+              prev.map((c) => (c.id === ch.id ? { ...c, dbId: created.id } : c))
+            );
+          }
+        }
+
+        if (dbId) {
+          // Update chapter title / number
+          await updateChapter(dbId, {
+            title: ch.title,
+            chapter_number: ch.chapterNumber,
+          });
+
+          // Save content
+          const content = format === "prose" ? ch.proseContent : ch.chatContent;
+          if (content) {
+            await saveChapterContent(dbId, content);
+          }
+        }
+      }
+    } catch (e: any) {
+      alert(e?.message || "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!storyId) return;
+    setPublishing(true);
+    try {
+      // Save all chapter content first
+      await handleSaveDraft();
+
+      // Set all chapters to published
+      for (const ch of chapters) {
+        if (ch.dbId) {
+          await updateChapter(ch.dbId, { status: "published" });
+        }
+      }
+
+      // Set story to published
+      await updateStory(storyId, { status: "published" });
+
+      router.push("/dashboard");
+    } catch (e: any) {
+      alert(e?.message || "Failed to publish");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // ── Category options ──
 
   const categoryOptions = [
@@ -186,13 +335,22 @@ export default function NewStoryPage() {
                 {showPreview ? "Edit" : "Preview"}
               </Button>
             )}
-            <Button variant="secondary" size="sm">
-              <Save className="h-4 w-4" />
-              Save Draft
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSaveDraft}
+              disabled={saving || !storyId}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : "Save Draft"}
             </Button>
-            <Button size="sm">
-              <Send className="h-4 w-4" />
-              Publish
+            <Button
+              size="sm"
+              onClick={handlePublish}
+              disabled={publishing || !storyId}
+            >
+              {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {publishing ? "Publishing..." : "Publish"}
             </Button>
           </div>
         </div>
@@ -218,7 +376,7 @@ export default function NewStoryPage() {
           <div className="h-px w-8 bg-border" />
           <button
             onClick={() => {
-              if (title.trim()) setStep(2);
+              if (storyId && title.trim()) setStep(2);
             }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
@@ -396,12 +554,16 @@ export default function NewStoryPage() {
             </div>
 
             <Button
-              onClick={() => setStep(2)}
-              disabled={!title.trim()}
+              onClick={handleCreateStoryAndProceed}
+              disabled={!title.trim() || saving || !user}
               className="w-full"
               size="lg"
             >
-              Continue to Editor
+              {saving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Creating Story...</>
+              ) : (
+                "Continue to Editor"
+              )}
             </Button>
           </div>
         )}
