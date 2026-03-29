@@ -4,14 +4,25 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { getReadingHistory } from "@/lib/supabase/queries";
+import type { Story, Profile, Chapter } from "@/lib/types";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatRelativeDate } from "@/lib/utils";
 import { Clock, BookOpen } from "lucide-react";
 
+interface ReadingHistoryItem {
+  id: string;
+  user_id: string;
+  story_id: string;
+  chapter_id: string | null;
+  read_at: string;
+  story?: Story & { creator?: Pick<Profile, "id" | "username" | "display_name" | "avatar_url"> };
+  chapter?: Pick<Chapter, "id" | "title" | "chapter_number">;
+}
+
 export default function ReadingHistoryPage() {
   const { user, isAuthenticated } = useAuthStore();
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -51,7 +62,7 @@ export default function ReadingHistoryPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {history.map((item: any) => (
+          {history.map((item) => (
             <Link
               key={item.id}
               href={`/story/${item.story?.slug}/${item.chapter?.chapter_number || 1}`}

@@ -246,7 +246,7 @@ export async function getBookmarks(userId: string) {
   if (!supabase) return [];
   const { data } = await supabase
     .from("bookmarks")
-    .select("*, story:stories(*, creator:profiles!creator_id(id, username, display_name, avatar_url))")
+    .select("*, story:stories(*, creator:profiles!creator_id(id, username, display_name, avatar_url)), last_read_chapter:chapters!last_read_chapter_id(id, chapter_number, title)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   return data || [];

@@ -14,7 +14,6 @@ import {
   Save,
   Send,
   Calendar,
-  Settings,
   ArrowLeft,
   Loader2,
 } from "lucide-react";
@@ -38,7 +37,7 @@ import {
   updateChapter,
   generateSlug,
 } from "@/lib/supabase/queries";
-import type { StoryFormat, Chapter, ChatContent } from "@/lib/types";
+import type { StoryFormat, ChatContent } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
 
 interface ChapterDraft {
@@ -120,7 +119,7 @@ export default function NewStoryPage() {
         if (created) {
           newChapter.dbId = created.id;
         }
-      } catch (e) {
+      } catch {
         // Chapter still added locally; will be persisted on next save
       }
     }
@@ -216,8 +215,9 @@ export default function NewStoryPage() {
       }
 
       setStep(2);
-    } catch (e: any) {
-      alert(e?.message || "Failed to create story");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create story";
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -261,8 +261,9 @@ export default function NewStoryPage() {
           }
         }
       }
-    } catch (e: any) {
-      alert(e?.message || "Failed to save draft");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save draft";
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -286,8 +287,9 @@ export default function NewStoryPage() {
       await updateStory(storyId, { status: "published" });
 
       router.push("/dashboard");
-    } catch (e: any) {
-      alert(e?.message || "Failed to publish");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to publish";
+      alert(message);
     } finally {
       setPublishing(false);
     }

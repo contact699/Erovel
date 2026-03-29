@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { StoryCard } from "@/components/story/story-card";
 import { Select } from "@/components/ui/select";
 import { formatNumber } from "@/lib/utils";
 import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
-import type { StoryFormat } from "@/lib/types";
+import type { Story, Category } from "@/lib/types";
 
 type SortOption = "trending" | "newest" | "most-tipped";
 
@@ -34,8 +34,8 @@ function BrowseContent() {
   const [sort, setSort] = useState<SortOption>(
     isValidSort(initialSort) ? initialSort : "trending"
   );
-  const [stories, setStories] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ function BrowseContent() {
 
   const categoryOptions = [
     { value: "all", label: "All Categories" },
-    ...categories.map((c: any) => ({ value: c.slug, label: c.name })),
+    ...categories.map((c) => ({ value: c.slug, label: c.name })),
   ];
 
   const formatOptions = [
@@ -87,7 +87,7 @@ function BrowseContent() {
             >
               All Categories
             </button>
-            {categories.map((category: any) => (
+            {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setCategoryFilter(category.slug)}
@@ -122,7 +122,7 @@ function BrowseContent() {
             <div className="text-center py-16 text-muted">Loading...</div>
           ) : stories.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {stories.map((story: any) => (
+              {stories.map((story) => (
                 <StoryCard key={story.id} story={story} />
               ))}
             </div>

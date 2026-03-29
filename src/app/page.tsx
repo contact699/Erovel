@@ -7,14 +7,15 @@ import { formatNumber } from "@/lib/utils";
 import { StoryCard } from "@/components/story/story-card";
 import { Button } from "@/components/ui/button";
 import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
+import type { Story, Category } from "@/lib/types";
 import {
   Flame, Clock, Grid3X3, PenTool, ArrowRight, BookOpen, MessageSquare, DollarSign, Users,
 } from "lucide-react";
 
 export default function HomePage() {
-  const [trendingStories, setTrendingStories] = useState<any[]>([]);
-  const [latestStories, setLatestStories] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [trendingStories, setTrendingStories] = useState<Story[]>([]);
+  const [latestStories, setLatestStories] = useState<Story[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trendingStories.map((story: any) => (
+            {trendingStories.map((story) => (
               <StoryCard key={story.id} story={story} />
             ))}
           </div>
@@ -113,7 +114,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="space-y-1">
-              {latestStories.map((story: any) => (
+              {latestStories.map((story) => (
                 <StoryCard key={story.id} story={story} variant="compact" />
               ))}
             </div>
@@ -146,7 +147,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {categories.map((category: any) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 href={`/browse/${category.slug}`}

@@ -9,16 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { BookMarked, BookOpen, X } from "lucide-react";
+import type { Bookmark } from "@/lib/types";
 
 export default function BookmarksPage() {
   const { user, isAuthenticated } = useAuthStore();
-  const [bookmarks, setBookmarks] = useState<any[]>([]);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     getBookmarks(user.id).then((data) => {
-      setBookmarks(data);
+      setBookmarks(data as Bookmark[]);
       setLoaded(true);
     });
   }, [user]);
@@ -54,9 +55,10 @@ export default function BookmarksPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {bookmarks.map((bookmark: any) => {
+          {bookmarks.map((bookmark: Bookmark) => {
             const story = bookmark.story;
             if (!story) return null;
+            const nextChapter = bookmark.last_read_chapter?.chapter_number ?? 1;
             return (
               <div key={bookmark.story_id} className="bg-surface border border-border rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
                 <div className="w-full sm:w-24 h-32 sm:h-auto rounded-lg bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center shrink-0">
@@ -78,7 +80,7 @@ export default function BookmarksPage() {
                     <button
                       onClick={async () => {
                         if (user) await removeBookmarkQuery(user.id, bookmark.story_id);
-                        setBookmarks((prev) => prev.filter((b: any) => b.story_id !== bookmark.story_id));
+                        setBookmarks((prev) => prev.filter((b: Bookmark) => b.story_id !== bookmark.story_id));
                       }}
                       className="text-muted hover:text-danger transition-colors shrink-0 cursor-pointer p-1"
                     >
@@ -91,7 +93,7 @@ export default function BookmarksPage() {
                     <span>Bookmarked {formatDate(bookmark.created_at)}</span>
                   </div>
                   <div className="pt-1">
-                    <Link href={`/story/${story.slug}/1`}>
+                    <Link href={`/story/${story.slug}/${nextChapter}`}>
                       <Button size="sm"><BookOpen size={14} /> Continue Reading</Button>
                     </Link>
                   </div>

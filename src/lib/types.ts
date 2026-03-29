@@ -135,11 +135,18 @@ export interface Comment {
   created_at: string;
 }
 
+export interface BookmarkChapter {
+  id: string;
+  chapter_number: number;
+  title: string;
+}
+
 export interface Bookmark {
   user_id: string;
   story_id: string;
   story?: Story;
   last_read_chapter_id: string | null;
+  last_read_chapter?: BookmarkChapter | null;
   created_at: string;
 }
 

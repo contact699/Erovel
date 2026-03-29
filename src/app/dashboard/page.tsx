@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { getMyStories } from "@/lib/supabase/queries";
+import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 import { PenTool, BookOpen, Eye, DollarSign, Plus } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuthStore();
-  const [stories, setStories] = useState<any[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -31,9 +32,9 @@ export default function DashboardPage() {
     );
   }
 
-  const totalViews = stories.reduce((sum: number, s: any) => sum + (s.view_count || 0), 0);
-  const publishedCount = stories.filter((s: any) => s.status === "published").length;
-  const draftCount = stories.filter((s: any) => s.status === "draft").length;
+  const totalViews = stories.reduce((sum: number, s: Story) => sum + (s.view_count || 0), 0);
+  const publishedCount = stories.filter((s) => s.status === "published").length;
+  const draftCount = stories.filter((s) => s.status === "draft").length;
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -87,7 +88,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {stories.slice(0, 5).map((story: any) => (
+            {stories.slice(0, 5).map((story) => (
               <Link
                 key={story.id}
                 href={`/dashboard/stories/${story.id}/edit`}

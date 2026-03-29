@@ -9,14 +9,15 @@ import { TipButton } from "@/components/monetization/tip-button";
 import { SubscribeButton } from "@/components/monetization/subscribe-button";
 import { StoryCard } from "@/components/story/story-card";
 import { getProfileByUsername, getStoriesByCreator } from "@/lib/supabase/queries";
+import type { Profile, Story } from "@/lib/types";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { CheckCircle, BookOpen, Users, Calendar } from "lucide-react";
 
 export default function CreatorProfilePage() {
   const params = useParams();
   const username = params.username as string;
-  const [creator, setCreator] = useState<any>(null);
-  const [stories, setStories] = useState<any[]>([]);
+  const [creator, setCreator] = useState<Profile | null>(null);
+  const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function CreatorProfilePage() {
       if (profile) {
         setCreator(profile);
         const creatorStories = await getStoriesByCreator(profile.id);
-        setStories(creatorStories.filter((s: any) => s.status === "published"));
+        setStories(creatorStories.filter((s) => s.status === "published"));
       }
       setLoaded(true);
     }
@@ -58,7 +59,7 @@ export default function CreatorProfilePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {stories.map((story: any) => (
+          {stories.map((story) => (
             <StoryCard key={story.id} story={story} />
           ))}
         </div>

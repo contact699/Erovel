@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { getMyStories, deleteStory } from "@/lib/supabase/queries";
+import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
@@ -11,7 +12,7 @@ import { Plus, BookOpen, Eye, Trash2, Edit } from "lucide-react";
 
 export default function DashboardStoriesPage() {
   const { user } = useAuthStore();
-  const [stories, setStories] = useState<any[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<string>("all");
 
@@ -25,14 +26,14 @@ export default function DashboardStoriesPage() {
 
   const filtered = filter === "all"
     ? stories
-    : stories.filter((s: any) => s.status === filter);
+    : stories.filter((s) => s.status === filter);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this story? This cannot be undone.")) return;
     try {
       await deleteStory(id);
-      setStories((prev) => prev.filter((s: any) => s.id !== id));
-    } catch (e) {
+      setStories((prev) => prev.filter((s) => s.id !== id));
+    } catch {
       alert("Failed to delete story");
     }
   }
@@ -69,7 +70,7 @@ export default function DashboardStoriesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((story: any) => (
+          {filtered.map((story) => (
             <div key={story.id} className="bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
