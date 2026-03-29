@@ -59,14 +59,22 @@ export async function POST(request: NextRequest) {
     const json = await response.json();
     const post = json.data;
 
-    const images = (post.images || []).map(
-      (img: { id: string; link: string; description: string | null; position: number }) => ({
-        id: img.id,
-        url: img.link,
-        description: img.description,
-        position: img.position,
-      })
-    );
+    const images = (post.images || [])
+      .map(
+        (img: { id: string; link: string; description: string | null; position: number }) => {
+          const url = img.link;
+          const ext = url.split(".").pop()?.toLowerCase() || "";
+          const isVideo = ["mp4", "webm", "mov"].includes(ext);
+          return {
+            id: img.id,
+            url,
+            description: img.description,
+            position: img.position,
+            type: isVideo ? "video" as const : "image" as const,
+          };
+        }
+      )
+      .sort((a: { position: number }, b: { position: number }) => a.position - b.position);
 
     return NextResponse.json({
       id: post.id,

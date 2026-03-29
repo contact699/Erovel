@@ -20,11 +20,12 @@ import {
 
 type ImportStep = "input" | "preview" | "review";
 
-interface ImportImage {
+interface ImportMedia {
   id: string;
   url: string;
   description: string | null;
   position: number;
+  type: "image" | "video";
   selected: boolean;
 }
 
@@ -33,7 +34,7 @@ interface GalleryData {
   title: string;
   imageCount: number;
   nsfw: boolean;
-  images: ImportImage[];
+  images: ImportMedia[];
 }
 
 export default function ImportPage() {
@@ -43,6 +44,7 @@ export default function ImportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [gallery, setGallery] = useState<GalleryData | null>(null);
+  type MediaItem = Omit<ImportMedia, "selected">;
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
 
@@ -67,7 +69,7 @@ export default function ImportPage() {
 
       setGallery({
         ...data,
-        images: data.images.map((img: Omit<ImportImage, "selected">) => ({
+        images: data.images.map((img: MediaItem) => ({
           ...img,
           selected: true,
         })),
@@ -238,30 +240,45 @@ export default function ImportPage() {
 
             {/* Real image grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-              {gallery.images.map((img) => (
+              {gallery.images.map((media) => (
                 <button
-                  key={img.id}
-                  onClick={() => toggleImage(img.id)}
+                  key={media.id}
+                  onClick={() => toggleImage(media.id)}
                   className={`relative aspect-[3/4] rounded-lg border overflow-hidden transition-all cursor-pointer ${
-                    img.selected
+                    media.selected
                       ? "border-accent ring-2 ring-accent/30"
                       : "border-border opacity-40 grayscale"
                   }`}
                 >
-                  <img
-                    src={img.url}
-                    alt={img.description || `Image ${img.position}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  {!img.selected && (
+                  {media.type === "video" ? (
+                    <video
+                      src={media.url}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={media.url}
+                      alt={media.description || `Image ${media.position}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                  {!media.selected && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                       <X size={32} className="text-white/70" />
                     </div>
                   )}
                   <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
-                    {img.position + 1}
+                    {media.position}
                   </span>
+                  {media.type === "video" && (
+                    <span className="absolute top-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                      VIDEO
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -324,20 +341,27 @@ export default function ImportPage() {
                 <div className="border border-border rounded-lg p-6 mb-6 max-h-[500px] overflow-y-auto space-y-4">
                   {format === "prose" ? (
                     <div className="space-y-6 max-w-lg mx-auto">
-                      {selectedImages().map((img) => (
-                        <div key={img.id}>
-                          <img
-                            src={img.url}
-                            alt={
-                              img.description ||
-                              `Image ${img.position + 1}`
-                            }
-                            className="w-full rounded-lg"
-                            loading="lazy"
-                          />
-                          {img.description && (
+                      {selectedImages().map((media) => (
+                        <div key={media.id}>
+                          {media.type === "video" ? (
+                            <video
+                              src={media.url}
+                              controls
+                              playsInline
+                              className="w-full rounded-lg"
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={media.url}
+                              alt={media.description || `Image ${media.position}`}
+                              className="w-full rounded-lg"
+                              loading="lazy"
+                            />
+                          )}
+                          {media.description && (
                             <p className="text-xs text-muted mt-1 text-center italic">
-                              {img.description}
+                              {media.description}
                             </p>
                           )}
                         </div>
@@ -345,9 +369,9 @@ export default function ImportPage() {
                     </div>
                   ) : (
                     <div className="space-y-3 max-w-md mx-auto">
-                      {selectedImages().map((img, i) => (
+                      {selectedImages().map((media, i) => (
                         <div
-                          key={img.id}
+                          key={media.id}
                           className={`flex ${
                             i % 2 === 0 ? "justify-start" : "justify-end"
                           }`}
@@ -359,18 +383,25 @@ export default function ImportPage() {
                                 : "bg-accent/10 rounded-tr-none"
                             }`}
                           >
-                            <img
-                              src={img.url}
-                              alt={
-                                img.description ||
-                                `Image ${img.position + 1}`
-                              }
-                              className="w-full rounded-lg"
-                              loading="lazy"
-                            />
-                            {img.description && (
+                            {media.type === "video" ? (
+                              <video
+                                src={media.url}
+                                controls
+                                playsInline
+                                className="w-full rounded-lg"
+                                preload="metadata"
+                              />
+                            ) : (
+                              <img
+                                src={media.url}
+                                alt={media.description || `Image ${media.position}`}
+                                className="w-full rounded-lg"
+                                loading="lazy"
+                              />
+                            )}
+                            {media.description && (
                               <p className="text-[10px] text-muted mt-1 px-1">
-                                {img.description}
+                                {media.description}
                               </p>
                             )}
                           </div>
