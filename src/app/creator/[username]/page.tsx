@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
 import { TipButton } from "@/components/monetization/tip-button";
@@ -41,7 +42,7 @@ export default function CreatorProfilePage() {
         <div className="text-center space-y-3">
           <h1 className="text-2xl font-bold">Creator not found</h1>
           <p className="text-muted">No creator with username &quot;{username}&quot; exists.</p>
-          <a href="/browse" className="text-accent hover:underline text-sm">Browse stories</a>
+          <Link href="/browse" className="text-accent hover:underline text-sm">Browse stories</Link>
         </div>
       </div>
     );

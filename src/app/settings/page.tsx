@@ -26,22 +26,10 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
 
-  if (!user) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-2">Settings</h1>
-        <p className="text-muted mb-6">Please log in to access settings.</p>
-        <a href="/login" className="text-accent hover:underline">Log in</a>
-      </div>
-    );
-  }
-  const currentUser = user;
-  const isCreator = currentUser.role === "creator";
-
   // Profile state
-  const [displayName, setDisplayName] = useState(currentUser.display_name);
-  const [username, setUsername] = useState(currentUser.username);
-  const [bio, setBio] = useState(currentUser.bio);
+  const [displayName, setDisplayName] = useState(user?.display_name || "");
+  const [username, setUsername] = useState(user?.username || "");
+  const [bio, setBio] = useState(user?.bio || "");
 
   // Account state
   const [email, setEmail] = useState("user@example.com");
@@ -74,6 +62,18 @@ export default function SettingsPage() {
 
   // Save handlers (mock)
   const [savingSection, setSavingSection] = useState<string | null>(null);
+
+  if (!user) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-2">Settings</h1>
+        <p className="text-muted mb-6">Please log in to access settings.</p>
+        <a href="/login" className="text-accent hover:underline">Log in</a>
+      </div>
+    );
+  }
+  const currentUser = user;
+  const isCreator = currentUser.role === "creator";
 
   function handleSave(section: string) {
     setSavingSection(section);

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { mockStories, mockChapters, mockChatContent } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TipButton } from "@/components/monetization/tip-button";
@@ -11,6 +10,15 @@ import { SubscribeButton } from "@/components/monetization/subscribe-button";
 import { ChatReader } from "@/components/story/chat-reader";
 import { ProseReader } from "@/components/story/prose-reader";
 import { useSubscriptionStore } from "@/store/subscription-store";
+import { useAuthStore } from "@/store/auth-store";
+import {
+  getStoryBySlug,
+  getChapterWithContent,
+  getChapters,
+  recordReading,
+  updateBookmarkProgress,
+} from "@/lib/supabase/queries";
+import type { Story, Chapter, ChatContent } from "@/lib/types";
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +29,7 @@ import {
   Lock,
   ArrowLeft,
   Bookmark,
+  Loader2,
 } from "lucide-react";
 
 export default function ChapterPage() {
@@ -28,13 +37,53 @@ export default function ChapterPage() {
   const slug = params.slug as string;
   const chapterNum = parseInt(params.chapter as string, 10);
 
+  const [story, setStory] = useState<Story | null>(null);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chapter, setChapter] = useState<(Chapter & { content?: { content_json: unknown } | null }) | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
 
-  const story = mockStories.find((s) => s.slug === slug);
-  const chapters = mockChapters.filter((ch) => ch.story_id === story?.id);
-  const chapter = chapters.find((ch) => ch.chapter_number === chapterNum);
+  const user = useAuthStore((s) => s.user);
+  const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
+  const unlocked = story
+    ? isContentUnlocked(story.id, story.creator_id)
+    : false;
+  const isGatedChapter = story?.is_gated && chapterNum > 2 && !unlocked;
+
+  // Fetch story, chapters, and chapter content
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const storyData = await getStoryBySlug(slug);
+        if (storyData) {
+          setStory(storyData as Story);
+          const [chaptersData, chapterData] = await Promise.all([
+            getChapters(storyData.id),
+            getChapterWithContent(storyData.id, chapterNum),
+          ]);
+          setChapters(chaptersData as Chapter[]);
+          setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
+
+          // Record reading and update bookmark progress if user is logged in
+          if (user && chapterData) {
+            recordReading(user.id, storyData.id, chapterData.id).catch(() => {});
+            updateBookmarkProgress(user.id, storyData.id, chapterData.id).catch(() => {});
+          }
+        }
+      } catch {
+        // Silently handle errors
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [slug, chapterNum, user]);
+
+  const isChat = story?.format === "chat";
 
   const prevChapter = chapters.find(
     (ch) => ch.chapter_number === chapterNum - 1 && ch.status === "published"
@@ -42,13 +91,6 @@ export default function ChapterPage() {
   const nextChapter = chapters.find(
     (ch) => ch.chapter_number === chapterNum + 1 && ch.status === "published"
   );
-
-  const isChat = story?.format === "chat";
-  const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
-  const unlocked = story
-    ? isContentUnlocked(story.id, story.creator_id)
-    : false;
-  const isGatedChapter = story?.is_gated && chapterNum > 2 && !unlocked;
 
   // Scroll progress tracking
   const handleScroll = useCallback(() => {
@@ -73,6 +115,14 @@ export default function ChapterPage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
   if (!story || !chapter) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -91,9 +141,13 @@ export default function ChapterPage() {
     );
   }
 
+  // Extract content from the chapter_content join
+  const contentJson = chapter.content?.content_json;
+  const chatContent = isChat && contentJson ? (contentJson as ChatContent) : null;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Reading progress bar ── */}
+      {/* ---- Reading progress bar ---- */}
       <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-border">
         <div
           className="h-full bg-accent transition-[width] duration-100 ease-out"
@@ -101,7 +155,7 @@ export default function ChapterPage() {
         />
       </div>
 
-      {/* ── Top navigation bar ── */}
+      {/* ---- Top navigation bar ---- */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link
@@ -126,7 +180,7 @@ export default function ChapterPage() {
         </div>
       </div>
 
-      {/* ── Chapter header ── */}
+      {/* ---- Chapter header ---- */}
       <div className="max-w-3xl mx-auto px-4 pt-10 pb-4 text-center">
         <p className="text-sm text-accent font-medium uppercase tracking-wider">
           Chapter {chapter.chapter_number}
@@ -147,14 +201,14 @@ export default function ChapterPage() {
         </div>
       </div>
 
-      {/* ── Chapter content ── */}
+      {/* ---- Chapter content ---- */}
       <div className="max-w-3xl mx-auto px-4 pb-32">
         {isGatedChapter ? (
           // Gated: show teaser then blur + subscribe prompt
           <div className="relative">
             {/* Teaser content */}
-            {isChat ? (
-              <ChatReader content={mockChatContent} teaserLimit={5} />
+            {isChat && chatContent ? (
+              <ChatReader content={chatContent} teaserLimit={5} />
             ) : (
               <ProseReader teaserLimit={2} />
             )}
@@ -198,15 +252,15 @@ export default function ChapterPage() {
         ) : (
           // Full content
           <>
-            {isChat ? (
-              <ChatReader content={mockChatContent} />
+            {isChat && chatContent ? (
+              <ChatReader content={chatContent} />
             ) : (
               <ProseReader />
             )}
           </>
         )}
 
-        {/* ── Chapter navigation ── */}
+        {/* ---- Chapter navigation ---- */}
         {!isGatedChapter && (
           <div className="border-t border-border pt-8 mt-8">
             <div className="flex items-center justify-between gap-4">
@@ -248,7 +302,7 @@ export default function ChapterPage() {
         )}
       </div>
 
-      {/* ── Sticky bottom bar ── */}
+      {/* ---- Sticky bottom bar ---- */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-md border-t border-border">
         <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between">
           {/* Left: chapter nav */}
@@ -318,7 +372,7 @@ export default function ChapterPage() {
         </div>
       </div>
 
-      {/* ── Chapter sidebar / drawer ── */}
+      {/* ---- Chapter sidebar / drawer ---- */}
       {sidebarOpen && (
         <>
           {/* Backdrop */}

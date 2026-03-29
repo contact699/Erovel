@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   BookOpen,
   MessageCircle,
@@ -14,8 +14,10 @@ import {
   Send,
   Calendar,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { cn, generateId } from "@/lib/utils";
 import { CATEGORIES, RELEASE_CADENCES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -26,129 +28,140 @@ import { Badge } from "@/components/ui/badge";
 import { MediaUpload } from "@/components/editor/media-upload";
 import { ProseEditor } from "@/components/editor/prose-editor";
 import { ChatEditor } from "@/components/editor/chat-editor";
-import { mockStories, mockChapters, mockChatContent } from "@/lib/mock-data";
-import type { StoryFormat, ChatContent } from "@/lib/types";
+import {
+  getChapters,
+  getChapterWithContent,
+} from "@/lib/supabase/queries";
+import { createClient } from "@/lib/supabase/client";
+import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
 
 interface ChapterDraft {
   id: string;
   title: string;
   chapterNumber: number;
+  status: string;
   proseContent?: JSONContent;
   chatContent?: ChatContent;
 }
 
-// Load mock data for the first story
-const mockStory = mockStories[0];
-const storyChapters = mockChapters.filter(
-  (c) => c.story_id === mockStory.id
-);
-
-// Demo prose content for the first chapter
-const demoProse: JSONContent = {
-  type: "doc",
-  content: [
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "The Proposal" }],
-    },
-    {
-      type: "paragraph",
-      content: [
-        {
-          type: "text",
-          text: "The conference room smelled of expensive coffee and tension. Claire adjusted her blazer for the third time, watching the city lights blink far below through floor-to-ceiling windows.",
-        },
-      ],
-    },
-    {
-      type: "paragraph",
-      content: [
-        { type: "text", text: '"You\'re staring," said a voice behind her. ' },
-        {
-          type: "text",
-          marks: [{ type: "italic" }],
-          text: "His",
-        },
-        {
-          type: "text",
-          text: " voice. The one she'd been trying not to think about for the past six months.",
-        },
-      ],
-    },
-    {
-      type: "paragraph",
-      content: [
-        {
-          type: "text",
-          text: "She turned slowly, and there he was. Marcus Cole. Tailored suit, crooked smile, and those eyes that made every business meeting feel like a private conversation.",
-        },
-      ],
-    },
-    { type: "horizontalRule" },
-    {
-      type: "paragraph",
-      content: [
-        {
-          type: "text",
-          text: '"I have a proposition," he said, sliding a folder across the mahogany table. "One that benefits us both."',
-        },
-      ],
-    },
-    {
-      type: "paragraph",
-      content: [
-        {
-          type: "text",
-          text: "Claire raised an eyebrow but reached for it. Their fingers brushed. Neither pulled away.",
-        },
-      ],
-    },
-  ],
-};
-
 export default function EditStoryPage() {
+  const params = useParams();
+  const storyId = params.id as string;
+
+  const [loading, setLoading] = useState(true);
+  const [storyData, setStoryData] = useState<Story | null>(null);
+
   // Step management
   const [step, setStep] = useState<1 | 2>(2);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Story details (pre-populated from mock)
-  const [title, setTitle] = useState(mockStory.title);
-  const [description, setDescription] = useState(mockStory.description);
-  const [categoryId, setCategoryId] = useState(mockStory.category_id);
-  const [format] = useState<StoryFormat>(mockStory.format);
-  const [tags, setTags] = useState<string[]>(
-    mockStory.tags.map((t) => t.name)
-  );
+  // Story details
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [format, setFormat] = useState<StoryFormat>("prose");
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [isGated, setIsGated] = useState(mockStory.is_gated);
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
-    mockStory.cover_image_url
-  );
+  const [isGated, setIsGated] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
 
-  // Chapters (pre-populated from mock)
-  const initialChapters: ChapterDraft[] = useMemo(
-    () =>
-      storyChapters.map((ch, i) => ({
-        id: ch.id,
-        title: ch.title,
-        chapterNumber: ch.chapter_number,
-        proseContent: i === 0 ? demoProse : undefined,
-      })),
-    []
-  );
-
-  const [chapters, setChapters] = useState<ChapterDraft[]>(initialChapters);
-  const [activeChapterId, setActiveChapterId] = useState<string>(
-    chapters[0]?.id || ""
-  );
+  // Chapters
+  const [chapters, setChapters] = useState<ChapterDraft[]>([]);
+  const [activeChapterId, setActiveChapterId] = useState<string>("");
 
   // Schedule
   const [releaseCadence, setReleaseCadence] = useState("3");
   const [startDate, setStartDate] = useState("2026-04-01");
 
-  // ── Tag handling ──
+  // Fetch story and chapters from Supabase
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch story
+        const { data: story } = await supabase
+          .from("stories")
+          .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+          .eq("id", storyId)
+          .single();
+
+        if (!story) {
+          setLoading(false);
+          return;
+        }
+
+        setStoryData(story as Story);
+        setTitle(story.title);
+        setDescription(story.description);
+        setCategoryId(story.category_id);
+        setFormat(story.format as StoryFormat);
+        setIsGated(story.is_gated);
+        setCoverImageUrl(story.cover_image_url);
+
+        // Fetch tags for this story
+        const { data: storyTags } = await supabase
+          .from("story_tags")
+          .select("tag:tags(name)")
+          .eq("story_id", storyId);
+        if (storyTags) {
+          const tagNames = storyTags
+            .map((st: Record<string, unknown>) => {
+              const tag = st.tag as { name: string } | null;
+              return tag?.name;
+            })
+            .filter(Boolean) as string[];
+          setTags(tagNames);
+        }
+
+        // Fetch chapters
+        const chaptersData = await getChapters(storyId);
+
+        // Load content for each chapter
+        const chapterDrafts: ChapterDraft[] = await Promise.all(
+          (chaptersData as Chapter[]).map(async (ch) => {
+            const withContent = await getChapterWithContent(storyId, ch.chapter_number);
+            const contentJson = (withContent as Record<string, unknown>)?.content
+              ? ((withContent as Record<string, unknown>).content as { content_json: unknown })?.content_json
+              : undefined;
+
+            const draft: ChapterDraft = {
+              id: ch.id,
+              title: ch.title,
+              chapterNumber: ch.chapter_number,
+              status: ch.status,
+            };
+
+            if (story.format === "prose" && contentJson) {
+              draft.proseContent = contentJson as JSONContent;
+            } else if (story.format === "chat" && contentJson) {
+              draft.chatContent = contentJson as ChatContent;
+            }
+
+            return draft;
+          })
+        );
+
+        setChapters(chapterDrafts);
+        if (chapterDrafts.length > 0) {
+          setActiveChapterId(chapterDrafts[0].id);
+        }
+      } catch {
+        // Silently handle errors
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [storyId]);
+
+  // ---- Tag handling ----
 
   const addTag = () => {
     const tag = tagInput.trim().toLowerCase();
@@ -162,13 +175,14 @@ export default function EditStoryPage() {
     setTags(tags.filter((t) => t !== tag));
   };
 
-  // ── Chapter management ──
+  // ---- Chapter management ----
 
   const addChapter = () => {
     const newChapter: ChapterDraft = {
       id: generateId(),
       title: `Chapter ${chapters.length + 1}`,
       chapterNumber: chapters.length + 1,
+      status: "draft",
     };
     setChapters([...chapters, newChapter]);
     setActiveChapterId(newChapter.id);
@@ -227,7 +241,7 @@ export default function EditStoryPage() {
     [activeChapterId]
   );
 
-  // ── Options ──
+  // ---- Options ----
 
   const categoryOptions = [
     { value: "", label: "Select a category..." },
@@ -239,11 +253,29 @@ export default function EditStoryPage() {
     label: r.label,
   }));
 
-  // Find chapter status from mock data
-  const getChapterStatus = (id: string) => {
-    const ch = mockChapters.find((c) => c.id === id);
-    return ch?.status || "draft";
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!storyData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold">Story not found</h1>
+          <p className="text-muted">
+            The story you are trying to edit does not exist.
+          </p>
+          <Link href="/dashboard">
+            <Button variant="secondary">Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -513,72 +545,69 @@ export default function EditStoryPage() {
                     </Button>
                   </div>
                   <div className="space-y-1 max-h-[500px] overflow-y-auto">
-                    {chapters.map((ch, idx) => {
-                      const status = getChapterStatus(ch.id);
-                      return (
-                        <div
-                          key={ch.id}
-                          className={cn(
-                            "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer",
-                            activeChapterId === ch.id
-                              ? "bg-accent/10 text-accent font-medium"
-                              : "text-foreground hover:bg-surface-hover"
-                          )}
-                          onClick={() => setActiveChapterId(ch.id)}
-                        >
-                          <GripVertical className="h-3.5 w-3.5 text-muted shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <span className="block truncate">
-                              {ch.chapterNumber}. {ch.title}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[10px]",
-                                status === "published"
-                                  ? "text-success"
-                                  : status === "scheduled"
-                                  ? "text-accent"
-                                  : "text-muted"
-                              )}
-                            >
-                              {status}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveChapter(ch.id, "up");
-                              }}
-                              disabled={idx === 0}
-                              className="text-muted hover:text-foreground disabled:opacity-30 cursor-pointer"
-                            >
-                              <ChevronUp className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveChapter(ch.id, "down");
-                              }}
-                              disabled={idx === chapters.length - 1}
-                              className="text-muted hover:text-foreground disabled:opacity-30 cursor-pointer"
-                            >
-                              <ChevronDown className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeChapter(ch.id);
-                              }}
-                              disabled={chapters.length <= 1}
-                              className="text-muted hover:text-danger disabled:opacity-30 cursor-pointer"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
+                    {chapters.map((ch, idx) => (
+                      <div
+                        key={ch.id}
+                        className={cn(
+                          "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer",
+                          activeChapterId === ch.id
+                            ? "bg-accent/10 text-accent font-medium"
+                            : "text-foreground hover:bg-surface-hover"
+                        )}
+                        onClick={() => setActiveChapterId(ch.id)}
+                      >
+                        <GripVertical className="h-3.5 w-3.5 text-muted shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate">
+                            {ch.chapterNumber}. {ch.title}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[10px]",
+                              ch.status === "published"
+                                ? "text-success"
+                                : ch.status === "scheduled"
+                                ? "text-accent"
+                                : "text-muted"
+                            )}
+                          >
+                            {ch.status}
+                          </span>
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveChapter(ch.id, "up");
+                            }}
+                            disabled={idx === 0}
+                            className="text-muted hover:text-foreground disabled:opacity-30 cursor-pointer"
+                          >
+                            <ChevronUp className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveChapter(ch.id, "down");
+                            }}
+                            disabled={idx === chapters.length - 1}
+                            className="text-muted hover:text-foreground disabled:opacity-30 cursor-pointer"
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeChapter(ch.id);
+                            }}
+                            disabled={chapters.length <= 1}
+                            className="text-muted hover:text-danger disabled:opacity-30 cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

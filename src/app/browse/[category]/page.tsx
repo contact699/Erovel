@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { mockStories, mockCategories } from "@/lib/mock-data";
 import { StoryCard } from "@/components/story/story-card";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils";
-import type { StoryFormat } from "@/lib/types";
-import { ArrowLeft } from "lucide-react";
+import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
+import type { Story, Category, StoryFormat } from "@/lib/types";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 type SortOption = "trending" | "newest" | "most-tipped";
 
@@ -17,10 +17,14 @@ export default function CategoryPage() {
   const params = useParams();
   const categorySlug = params.category as string;
 
-  const category = mockCategories.find((c) => c.slug === categorySlug);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [formatFilter, setFormatFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortOption>("trending");
+
+  const category = categories.find((c) => c.slug === categorySlug);
 
   const formatOptions = [
     { value: "all", label: "All Formats" },
@@ -34,31 +38,46 @@ export default function CategoryPage() {
     { value: "most-tipped", label: "Most Tipped" },
   ];
 
-  const filteredStories = useMemo(() => {
-    let stories = mockStories.filter(
-      (s) => s.category?.slug === categorySlug || s.category_id === categorySlug
-    );
-
-    if (formatFilter !== "all") {
-      stories = stories.filter((s) => s.format === (formatFilter as StoryFormat));
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [categoriesData, storiesData] = await Promise.all([
+          getCategories(),
+          getPublishedStories({
+            category: categorySlug,
+            format: formatFilter !== "all" ? formatFilter : undefined,
+            sort,
+          }),
+        ]);
+        setCategories(categoriesData as Category[]);
+        setStories(storiesData as Story[]);
+      } catch {
+        // Silently handle errors
+      } finally {
+        setLoading(false);
+      }
     }
-
-    switch (sort) {
-      case "trending":
-        stories.sort((a, b) => b.view_count - a.view_count);
-        break;
-      case "newest":
-        stories.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        break;
-      case "most-tipped":
-        stories.sort((a, b) => b.tip_total - a.tip_total);
-        break;
-    }
-
-    return stories;
+    fetchData();
   }, [categorySlug, formatFilter, sort]);
+
+  // Client-side filtering for format (since the query already filters, this is just
+  // for the case where the category filter uses slug matching)
+  const filteredStories = useMemo(() => {
+    let result = stories;
+    if (formatFilter !== "all") {
+      result = result.filter((s) => s.format === (formatFilter as StoryFormat));
+    }
+    return result;
+  }, [stories, formatFilter]);
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (!category) {
     return (
@@ -149,7 +168,7 @@ export default function CategoryPage() {
       <div className="mt-16 pt-8 border-t border-border">
         <h2 className="text-lg font-semibold mb-4">Other Categories</h2>
         <div className="flex flex-wrap gap-2">
-          {mockCategories
+          {categories
             .filter((c) => c.slug !== categorySlug)
             .map((c) => (
               <Link

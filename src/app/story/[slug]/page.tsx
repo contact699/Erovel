@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { mockStories, mockChapters, mockComments } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,12 @@ import {
 } from "@/lib/utils";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import {
+  getStoryBySlug,
+  getChapters,
+  getComments,
+} from "@/lib/supabase/queries";
+import type { Story, Chapter, Comment } from "@/lib/types";
+import {
   Eye,
   MessageCircle,
   DollarSign,
@@ -31,6 +36,7 @@ import {
   Share2,
   BookMarked,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 // Social sharing icons (presentational only)
@@ -54,12 +60,47 @@ export default function StoryPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const story = mockStories.find((s) => s.slug === slug);
+  const [story, setStory] = useState<Story | null>(null);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentBody, setCommentBody] = useState("");
+
   const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
   const unlocked = story
     ? isContentUnlocked(story.id, story.creator_id)
     : false;
-  const [commentBody, setCommentBody] = useState("");
+
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const storyData = await getStoryBySlug(slug);
+        if (storyData) {
+          setStory(storyData as Story);
+          const [chaptersData, commentsData] = await Promise.all([
+            getChapters(storyData.id),
+            getComments(storyData.id),
+          ]);
+          setChapters(chaptersData as Chapter[]);
+          setComments(commentsData as Comment[]);
+        }
+      } catch {
+        // Silently handle errors
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (!story) {
     return (
@@ -77,8 +118,6 @@ export default function StoryPage() {
     );
   }
 
-  const chapters = mockChapters.filter((ch) => ch.story_id === story.id);
-  const comments = mockComments.filter((c) => c.story_id === story.id);
   const firstPublishedChapter = chapters.find(
     (ch) => ch.status === "published"
   );
@@ -100,7 +139,7 @@ export default function StoryPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-        {/* ── Hero section ── */}
+        {/* ---- Hero section ---- */}
         <section className="space-y-6">
           {/* Format + gated badges */}
           <div className="flex items-center gap-2">
@@ -190,7 +229,7 @@ export default function StoryPage() {
           </div>
 
           {/* Tags */}
-          {story.tags.length > 0 && (
+          {story.tags && story.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {story.tags.map((tag) => (
                 <Badge key={tag.id} variant="default">
@@ -256,7 +295,7 @@ export default function StoryPage() {
           </div>
         </section>
 
-        {/* ── Chapter list ── */}
+        {/* ---- Chapter list ---- */}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <BookOpen size={20} className="text-accent" />
@@ -335,7 +374,7 @@ export default function StoryPage() {
           </div>
         </section>
 
-        {/* ── Comments section ── */}
+        {/* ---- Comments section ---- */}
         <section className="space-y-6">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <MessageCircle size={20} className="text-accent" />
