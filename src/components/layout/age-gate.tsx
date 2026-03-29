@@ -58,30 +58,33 @@ export function AgeGate() {
 
         <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
           <p className="text-sm font-medium">Enter your date of birth</p>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <input
               type="text"
+              inputMode="numeric"
               placeholder="MM"
               maxLength={2}
               value={month}
               onChange={(e) => setMonth(e.target.value.replace(/\D/g, ""))}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="w-full min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
             <input
               type="text"
+              inputMode="numeric"
               placeholder="DD"
               maxLength={2}
               value={day}
               onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="w-full min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
             <input
               type="text"
+              inputMode="numeric"
               placeholder="YYYY"
               maxLength={4}
               value={year}
               onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="w-full min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
           </div>
 
