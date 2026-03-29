@@ -108,6 +108,18 @@ export default function ImportPage() {
     setError("");
 
     try {
+      // Verify we have an active session
+      const { createClient: getClient } = await import("@/lib/supabase/client");
+      const supabase = getClient();
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setError("Session expired. Please log in again.");
+          setPublishing(false);
+          return;
+        }
+      }
+
       const selected = selectedImages();
 
       // Create the story
@@ -186,9 +198,10 @@ export default function ImportPage() {
       setTimeout(() => {
         router.push("/dashboard/stories");
       }, 1500);
-    } catch (err) {
+    } catch (err: unknown) {
       setPublishing(false);
-      setError(err instanceof Error ? err.message : "Failed to create story");
+      const msg = (err && typeof err === "object" && "message" in err) ? String((err as { message: string }).message) : "Failed to create story";
+      setError(msg);
     }
   }
 

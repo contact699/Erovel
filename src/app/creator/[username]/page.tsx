@@ -26,7 +26,7 @@ export default function CreatorProfilePage() {
       if (profile) {
         setCreator(profile);
         const creatorStories = await getStoriesByCreator(profile.id);
-        setStories(creatorStories.filter((s) => s.status === "published"));
+        setStories(creatorStories.filter((s: Story) => s.status === "published"));
       }
       setLoaded(true);
     }
