@@ -1,0 +1,405 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { mockStories, mockChapters, mockComments } from "@/lib/mock-data";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { TipButton } from "@/components/monetization/tip-button";
+import { SubscribeButton } from "@/components/monetization/subscribe-button";
+import {
+  formatNumber,
+  formatRelativeDate,
+  formatDate,
+  estimateReadingTime,
+} from "@/lib/utils";
+import { useSubscriptionStore } from "@/store/subscription-store";
+import {
+  Eye,
+  MessageCircle,
+  DollarSign,
+  BookOpen,
+  Clock,
+  Hash,
+  ChevronRight,
+  Lock,
+  Calendar,
+  MessageSquare,
+  Share2,
+  BookMarked,
+  ArrowLeft,
+} from "lucide-react";
+
+// Social sharing icons (presentational only)
+function TwitterIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function RedditIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.066 13.71c.147.047.277.12.39.21a1.476 1.476 0 01-.39 2.544c-.258 1.992-2.79 3.536-5.866 3.536-3.076 0-5.607-1.544-5.866-3.536a1.476 1.476 0 01-.39-2.544c.113-.09.243-.163.39-.21a1.476 1.476 0 012.124-1.116c1.082-.702 2.535-1.143 4.142-1.19l.78-3.666a.37.37 0 01.44-.282l2.594.552a1.048 1.048 0 11-.12.56l-2.318-.494-.694 3.262c1.562.065 2.973.503 4.028 1.188a1.476 1.476 0 012.124 1.116zM9.6 14.4a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4zm4.8 0a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4zm-4.452 1.86a.36.36 0 01.504-.048c.6.5 1.836.78 2.748.78s2.148-.28 2.748-.78a.36.36 0 01.456.552c-.78.66-2.208.972-3.204.972s-2.424-.312-3.204-.972a.36.36 0 01-.048-.504z" />
+    </svg>
+  );
+}
+
+export default function StoryPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+
+  const story = mockStories.find((s) => s.slug === slug);
+  const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
+  const unlocked = story
+    ? isContentUnlocked(story.id, story.creator_id)
+    : false;
+  const [commentBody, setCommentBody] = useState("");
+
+  if (!story) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold">Story not found</h1>
+          <p className="text-muted">
+            The story you are looking for does not exist.
+          </p>
+          <Link href="/">
+            <Button variant="secondary">Back to Home</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const chapters = mockChapters.filter((ch) => ch.story_id === story.id);
+  const comments = mockComments.filter((c) => c.story_id === story.id);
+  const firstPublishedChapter = chapters.find(
+    (ch) => ch.status === "published"
+  );
+  const isChat = story.format === "chat";
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header / Back nav */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <Link
+            href="/"
+            className="text-muted hover:text-foreground transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <span className="text-sm text-muted truncate">{story.title}</span>
+        </div>
+      </div>
+
+      <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+        {/* ── Hero section ── */}
+        <section className="space-y-6">
+          {/* Format + gated badges */}
+          <div className="flex items-center gap-2">
+            <Badge variant={isChat ? "accent" : "default"}>
+              {isChat ? (
+                <>
+                  <MessageSquare size={12} className="mr-1 inline" />
+                  Chat Format
+                </>
+              ) : (
+                <>
+                  <BookOpen size={12} className="mr-1 inline" />
+                  Prose
+                </>
+              )}
+            </Badge>
+            {story.is_gated && (
+              <Badge variant="accent">
+                <Lock size={10} className="mr-1 inline" />
+                Premium
+              </Badge>
+            )}
+            {story.category && (
+              <Badge variant="outline">{story.category.name}</Badge>
+            )}
+          </div>
+
+          {/* Title */}
+          <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
+            {story.title}
+          </h1>
+
+          {/* Description */}
+          <p className="text-lg text-muted leading-relaxed">
+            {story.description}
+          </p>
+
+          {/* Creator info */}
+          <div className="flex items-center gap-3">
+            <Link href={`/creator/${story.creator?.username}`}>
+              <Avatar
+                src={story.creator?.avatar_url}
+                name={story.creator?.display_name || ""}
+                size="lg"
+              />
+            </Link>
+            <div>
+              <Link
+                href={`/creator/${story.creator?.username}`}
+                className="font-semibold hover:text-accent transition-colors"
+              >
+                {story.creator?.display_name}
+              </Link>
+              <p className="text-sm text-muted">
+                @{story.creator?.username}
+                {story.creator?.is_verified && (
+                  <span className="ml-1 text-accent" title="Verified">
+                    &#10003;
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
+            <span className="flex items-center gap-1.5">
+              <Eye size={16} />
+              {formatNumber(story.view_count)} views
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MessageCircle size={16} />
+              {formatNumber(story.comment_count)} comments
+            </span>
+            <span className="flex items-center gap-1.5">
+              <DollarSign size={16} />
+              {formatNumber(story.tip_total)} in tips
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Hash size={16} />
+              {formatNumber(story.word_count)} words
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock size={16} />
+              {estimateReadingTime(story.word_count)}
+            </span>
+          </div>
+
+          {/* Tags */}
+          {story.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {story.tags.map((tag) => (
+                <Badge key={tag.id} variant="default">
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {firstPublishedChapter && (
+              <Link href={`/story/${story.slug}/${firstPublishedChapter.chapter_number}`}>
+                <Button size="lg">
+                  <BookOpen size={18} />
+                  Start Reading
+                </Button>
+              </Link>
+            )}
+
+            {story.is_gated && (
+              <SubscribeButton
+                targetType="story"
+                targetName={story.title}
+                price={4.99}
+                storyId={story.id}
+                creatorId={story.creator_id}
+              />
+            )}
+
+            <TipButton
+              creatorName={story.creator?.display_name || ""}
+              storyTitle={story.title}
+            />
+
+            {/* Social share buttons */}
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
+                title="Share on X"
+              >
+                <TwitterIcon className="w-4 h-4" />
+              </button>
+              <button
+                className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
+                title="Share on Reddit"
+              >
+                <RedditIcon className="w-4 h-4" />
+              </button>
+              <button
+                className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
+                title="Copy link"
+              >
+                <Share2 size={16} />
+              </button>
+              <button
+                className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
+                title="Bookmark"
+              >
+                <BookMarked size={16} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Chapter list ── */}
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <BookOpen size={20} className="text-accent" />
+            Chapters
+            <span className="text-sm text-muted font-normal">
+              ({story.published_chapter_count} of {story.chapter_count})
+            </span>
+          </h2>
+
+          <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
+            {chapters.map((ch) => {
+              const isPublished = ch.status === "published";
+              const isScheduled = ch.status === "scheduled";
+              const isDraft = ch.status === "draft";
+              const isLocked = story.is_gated && ch.chapter_number > 2 && !unlocked;
+
+              return (
+                <div key={ch.id}>
+                  {isPublished ? (
+                    <Link
+                      href={`/story/${story.slug}/${ch.chapter_number}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors group"
+                    >
+                      <span className="text-sm font-medium text-muted w-8 shrink-0">
+                        {ch.chapter_number}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium group-hover:text-accent transition-colors">
+                          {ch.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isLocked && (
+                          <Lock size={14} className="text-accent" />
+                        )}
+                        <Badge variant="success" className="text-[10px]">
+                          Published
+                        </Badge>
+                        <ChevronRight
+                          size={16}
+                          className="text-muted group-hover:text-accent transition-colors"
+                        />
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 px-4 py-3 opacity-60">
+                      <span className="text-sm font-medium text-muted w-8 shrink-0">
+                        {ch.chapter_number}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium">{ch.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isScheduled && ch.publish_at && (
+                          <span className="text-xs text-muted flex items-center gap-1">
+                            <Calendar size={12} />
+                            {formatDate(ch.publish_at)}
+                          </span>
+                        )}
+                        {isScheduled && (
+                          <Badge variant="accent" className="text-[10px]">
+                            Scheduled
+                          </Badge>
+                        )}
+                        {isDraft && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Draft
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Comments section ── */}
+        <section className="space-y-6">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <MessageCircle size={20} className="text-accent" />
+            Comments
+            <span className="text-sm text-muted font-normal">
+              ({comments.length})
+            </span>
+          </h2>
+
+          {/* Comment form */}
+          <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+            <Textarea
+              placeholder="Share your thoughts on this story..."
+              value={commentBody}
+              onChange={(e) => setCommentBody(e.target.value)}
+              className="min-h-[80px]"
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={!commentBody.trim()}
+                onClick={() => setCommentBody("")}
+              >
+                Post Comment
+              </Button>
+            </div>
+          </div>
+
+          {/* Comment list */}
+          <div className="space-y-4">
+            {comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="bg-surface border border-border rounded-xl p-4 space-y-3"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    src={comment.user?.avatar_url}
+                    name={comment.user?.display_name || ""}
+                    size="sm"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">
+                      {comment.user?.display_name}
+                    </span>
+                    <span className="text-xs text-muted ml-2">
+                      {formatRelativeDate(comment.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/90">
+                  {comment.body}
+                </p>
+              </div>
+            ))}
+
+            {comments.length === 0 && (
+              <p className="text-center text-muted py-8">
+                No comments yet. Be the first to share your thoughts.
+              </p>
+            )}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

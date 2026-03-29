@@ -1,26 +1,160 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border-color);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #faf9f7;
+  --foreground: #1a1a1a;
+  --surface: #ffffff;
+  --surface-hover: #f5f3f0;
+  --border-color: #e5e2dd;
+  --muted: #8c8478;
+  --accent: #c2815b;
+  --accent-hover: #a96d4a;
+  --danger: #dc2626;
+  --success: #16a34a;
+}
+
+.dark {
+  --background: #0c0a09;
+  --foreground: #f5f0eb;
+  --surface: #1c1917;
+  --surface-hover: #292524;
+  --border-color: #3d3530;
+  --muted: #a8a29e;
+  --accent: #d4a574;
+  --accent-hover: #e0b88a;
+  --danger: #ef4444;
+  --success: #22c55e;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* TipTap editor styles */
+.tiptap-editor .ProseMirror {
+  outline: none;
+  min-height: 300px;
+  padding: 1rem;
+}
+
+.tiptap-editor .ProseMirror p {
+  margin-bottom: 0.75rem;
+  line-height: 1.75;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
+  cursor: pointer;
+}
+
+.tiptap-editor .ProseMirror em {
+  font-style: italic;
+}
+
+.tiptap-editor .ProseMirror strong {
+  font-weight: 700;
+}
+
+.tiptap-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2rem 0;
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Story reading typography */
+.story-prose {
+  font-size: 1.125rem;
+  line-height: 1.9;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.story-prose p {
+  margin-bottom: 1.25rem;
+  text-indent: 1.5em;
+}
+
+.story-prose p:first-child {
+  text-indent: 0;
+}
+
+.story-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.5rem auto;
+  display: block;
+  cursor: pointer;
+}
+
+.story-prose hr {
+  border: none;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.story-prose hr::after {
+  content: "* * *";
+  color: var(--muted);
+  letter-spacing: 0.5em;
 }
