@@ -117,12 +117,29 @@ export default function BookmarksPage() {
                   )}
 
                   <div className="pt-1">
-                    <Link href={`/story/${story.slug}/1`}>
-                      <Button size="sm">
-                        <BookOpen size={14} />
-                        Continue Reading
-                      </Button>
-                    </Link>
+                    {(() => {
+                      const lastChapterId = bookmark.last_read_chapter_id;
+                      const lastReadChapter = lastChapterId
+                        ? mockChapters.find((c) => c.id === lastChapterId)
+                        : null;
+                      // Go to next chapter after last read, or chapter 1 if no history
+                      const nextChapterNum = lastReadChapter
+                        ? lastReadChapter.chapter_number + 1
+                        : 1;
+                      // Cap at published chapter count
+                      const targetChapter = Math.min(
+                        nextChapterNum,
+                        story.published_chapter_count
+                      );
+                      return (
+                        <Link href={`/story/${story.slug}/${targetChapter}`}>
+                          <Button size="sm">
+                            <BookOpen size={14} />
+                            {lastReadChapter ? "Continue Reading" : "Start Reading"}
+                          </Button>
+                        </Link>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

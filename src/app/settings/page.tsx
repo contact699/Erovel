@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth-store";
-import { mockCreator } from "@/lib/mock-data";
+import { useThemeStore } from "@/store/theme-store";
 import { CATEGORIES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,18 @@ import {
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
-  const currentUser = user ?? mockCreator;
+  const { theme, toggleTheme } = useThemeStore();
+
+  if (!user) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-2">Settings</h1>
+        <p className="text-muted mb-6">Please log in to access settings.</p>
+        <a href="/login" className="text-accent hover:underline">Log in</a>
+      </div>
+    );
+  }
+  const currentUser = user;
   const isCreator = currentUser.role === "creator";
 
   // Profile state
@@ -56,7 +67,6 @@ export default function SettingsPage() {
     "romance",
     "fantasy",
   ]);
-  const [darkMode, setDarkMode] = useState(false);
 
   // Delete account
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -371,15 +381,15 @@ export default function SettingsPage() {
           <button
             type="button"
             role="switch"
-            aria-checked={darkMode}
-            onClick={() => setDarkMode(!darkMode)}
+            aria-checked={theme === "dark"}
+            onClick={toggleTheme}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-              darkMode ? "bg-accent" : "bg-border"
+              theme === "dark" ? "bg-accent" : "bg-border"
             }`}
           >
             <span
               className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                darkMode ? "translate-x-5" : "translate-x-0"
+                theme === "dark" ? "translate-x-5" : "translate-x-0"
               }`}
             />
           </button>

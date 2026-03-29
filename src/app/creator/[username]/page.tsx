@@ -27,8 +27,20 @@ export default function CreatorProfilePage() {
   const params = useParams();
   const username = params.username as string;
 
-  const creator =
-    mockProfiles.find((p) => p.username === username) ?? mockCreator;
+  const creator = mockProfiles.find((p) => p.username === username);
+
+  if (!creator) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <h1 className="text-2xl font-bold">Creator not found</h1>
+          <p className="text-muted">No creator with username &quot;{username}&quot; exists.</p>
+          <a href="/browse" className="text-accent hover:underline text-sm">Browse stories</a>
+        </div>
+      </div>
+    );
+  }
+
   const creatorStories = mockStories.filter(
     (s) => s.creator_id === creator.id && s.status === "published"
   );
@@ -165,6 +177,7 @@ export default function CreatorProfilePage() {
             <SubscribeButton
               targetType="creator"
               targetName={creator.display_name}
+              creatorId={creator.id}
               price={9.99}
             />
           </div>

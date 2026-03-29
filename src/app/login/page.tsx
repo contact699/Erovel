@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleDemoLogin(role: "reader" | "creator") {
+  function handleDemoLogin(role: "reader" | "creator" | "admin") {
     login(role);
     router.push("/");
   }
@@ -85,7 +85,7 @@ export default function LoginPage() {
           </div>
 
           {/* Demo login buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button
               variant="secondary"
               size="lg"
@@ -99,6 +99,13 @@ export default function LoginPage() {
               onClick={() => handleDemoLogin("creator")}
             >
               Log in as Creator
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => handleDemoLogin("admin")}
+            >
+              Log in as Admin
             </Button>
           </div>
         </div>

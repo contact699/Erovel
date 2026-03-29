@@ -18,7 +18,7 @@ export function Footer() {
               <li><Link href="/browse" className="hover:text-foreground transition-colors">All Stories</Link></li>
               <li><Link href="/browse/romance" className="hover:text-foreground transition-colors">Romance</Link></li>
               <li><Link href="/browse/fantasy" className="hover:text-foreground transition-colors">Fantasy</Link></li>
-              <li><Link href="/browse/chat" className="hover:text-foreground transition-colors">Chat Stories</Link></li>
+              <li><Link href="/browse?format=chat" className="hover:text-foreground transition-colors">Chat Stories</Link></li>
             </ul>
           </div>
           <div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import { Suspense, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { mockStories, mockCategories } from "@/lib/mock-data";
 import { StoryCard } from "@/components/story/story-card";
 import { Select } from "@/components/ui/select";
@@ -10,10 +10,30 @@ import type { StoryFormat } from "@/lib/types";
 
 type SortOption = "trending" | "newest" | "most-tipped";
 
+function isValidSort(v: string | null): v is SortOption {
+  return v === "trending" || v === "newest" || v === "most-tipped";
+}
+
 export default function BrowsePage() {
+  return (
+    <Suspense>
+      <BrowseContent />
+    </Suspense>
+  );
+}
+
+function BrowseContent() {
+  const searchParams = useSearchParams();
+  const initialSort = searchParams.get("sort");
+  const initialFormat = searchParams.get("format");
+
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [formatFilter, setFormatFilter] = useState<string>("all");
-  const [sort, setSort] = useState<SortOption>("trending");
+  const [formatFilter, setFormatFilter] = useState<string>(
+    initialFormat === "prose" || initialFormat === "chat" ? initialFormat : "all"
+  );
+  const [sort, setSort] = useState<SortOption>(
+    isValidSort(initialSort) ? initialSort : "trending"
+  );
 
   const categoryOptions = [
     { value: "all", label: "All Categories" },

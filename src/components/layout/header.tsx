@@ -38,7 +38,7 @@ export function Header() {
           <Link href="/browse/fantasy" className="text-muted hover:text-foreground transition-colors">
             Fantasy
           </Link>
-          <Link href="/browse/chat" className="text-muted hover:text-foreground transition-colors">
+          <Link href="/browse?format=chat" className="text-muted hover:text-foreground transition-colors">
             Chat Stories
           </Link>
         </nav>
@@ -126,7 +126,7 @@ export function Header() {
           <Link href="/browse/fantasy" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
             Fantasy
           </Link>
-          <Link href="/browse/chat" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
+          <Link href="/browse?format=chat" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
             Chat Stories
           </Link>
           <hr className="border-border" />
