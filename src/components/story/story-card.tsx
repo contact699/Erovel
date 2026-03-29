@@ -71,7 +71,7 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
           </div>
 
           {/* Tags */}
-          {story.tags.length > 0 && (
+          {story.tags && story.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {story.tags.slice(0, 3).map((tag) => (
                 <span key={tag.id} className="text-xs text-muted bg-surface-hover px-2 py-0.5 rounded-full">
