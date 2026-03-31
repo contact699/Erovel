@@ -16,7 +16,7 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const { characters, messages } = content;
-  const sorted = [...messages].sort((a, b) => a.order - b.order);
+  const sorted = [...messages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const charMap = new Map<string, ChatCharacter>();
   characters.forEach((c) => charMap.set(c.id, c));
 

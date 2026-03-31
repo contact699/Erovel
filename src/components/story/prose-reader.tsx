@@ -2,83 +2,120 @@
 
 import { useState } from "react";
 import { Lightbox } from "@/components/ui/lightbox";
-import { ImageIcon } from "lucide-react";
+
+interface ProseNode {
+  type: string;
+  attrs?: Record<string, string>;
+  content?: ProseNode[];
+  text?: string;
+  marks?: { type: string }[];
+}
 
 interface ProseReaderProps {
-  /** If set, only show this many paragraphs then blur the rest */
+  content?: { type?: string; content?: ProseNode[] };
   teaserLimit?: number;
 }
 
-/** Placeholder paragraphs used when real TipTap content is unavailable */
-const PLACEHOLDER_PARAGRAPHS = [
-  `The evening had settled over the city like a held breath. She stood at the window of his corner office, watching the last light bleed from the skyline, and wondered how it was possible to feel so entirely known by someone she had only met six weeks ago. The glass was cool beneath her fingertips. Behind her she could hear him pouring two measures of bourbon, the soft clink of crystal deliberate, unhurried, as if time were something he had decided to own.`,
-
-  `"You're thinking too loudly," he said, and she could hear the half-smile in his voice without turning around. He crossed the room and set her glass on the windowsill beside her hand. His sleeve brushed her bare arm, and the contact sent a low current through her chest, the kind that made her forget whatever careful thing she had planned to say next.`,
-
-  `She took the glass and let the warmth of it anchor her. "I'm thinking about the terms," she said carefully. "About whether they still make sense." The bourbon tasted of oak and smoke and something almost sweet beneath it. She turned to face him and found him closer than she expected, close enough to see the amber the city lights painted in his eyes.`,
-
-  `He studied her for a long moment, the kind of silence that would have been uncomfortable with anyone else. With him it felt like standing at the edge of something vast and knowing that the fall would be worth it. "The terms," he repeated, his voice low. He reached up and tucked a strand of hair behind her ear, his knuckle trailing the line of her jaw. "Are you asking me to change them, or are you telling me you already have?"`,
-
-  `The question hung between them. She set her glass down without looking and closed the distance herself, her hand finding the front of his shirt, feeling the steady beat beneath it. "I'm saying that I didn't come here tonight because of an arrangement." Her voice was steady even as her pulse was not. "I came because I wanted to."`,
-
-  `His hand came to rest at the small of her back, warm and sure, and she felt the last pretense between them dissolve like ink in water. When he kissed her it was slow and deliberate, the way he did everything, and she thought that this was what it meant to cross a line you could never uncross, and to be glad of it.`,
-];
-
-export function ProseReader({ teaserLimit }: ProseReaderProps) {
+export function ProseReader({ content, teaserLimit }: ProseReaderProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const paragraphs = teaserLimit
-    ? PLACEHOLDER_PARAGRAPHS.slice(0, teaserLimit)
-    : PLACEHOLDER_PARAGRAPHS;
+  const nodes = content?.content || [];
+  const visible = teaserLimit ? nodes.slice(0, teaserLimit) : nodes;
+  const hasMore = teaserLimit ? nodes.length > teaserLimit : false;
+
+  if (nodes.length === 0) {
+    return (
+      <div className="py-16 text-center text-muted">
+        <p>No content available.</p>
+      </div>
+    );
+  }
+
+  function renderText(node: ProseNode): React.ReactNode {
+    if (node.type === "text") {
+      let el: React.ReactNode = node.text || "";
+      if (node.marks) {
+        for (const mark of node.marks) {
+          if (mark.type === "bold") el = <strong>{el}</strong>;
+          if (mark.type === "italic") el = <em>{el}</em>;
+        }
+      }
+      return el;
+    }
+    return null;
+  }
+
+  function renderNode(node: ProseNode, idx: number): React.ReactNode {
+    switch (node.type) {
+      case "paragraph":
+        return (
+          <p key={idx}>
+            {node.content?.map((child, i) => (
+              <span key={i}>{renderText(child)}</span>
+            ))}
+          </p>
+        );
+
+      case "heading": {
+        const level = node.attrs?.level || "2";
+        const Tag = level === "3" ? "h3" : "h2";
+        return (
+          <Tag key={idx}>
+            {node.content?.map((child, i) => (
+              <span key={i}>{renderText(child)}</span>
+            ))}
+          </Tag>
+        );
+      }
+
+      case "image":
+        return (
+          <figure key={idx} className="my-6">
+            <button
+              onClick={() => setLightboxSrc(node.attrs?.src || "")}
+              className="w-full cursor-pointer block"
+            >
+              <img
+                src={node.attrs?.src}
+                alt={node.attrs?.alt || ""}
+                className="w-full rounded-lg"
+                loading="lazy"
+              />
+            </button>
+            {node.attrs?.alt && (
+              <figcaption className="text-xs text-muted text-center mt-2 italic">
+                {node.attrs.alt}
+              </figcaption>
+            )}
+          </figure>
+        );
+
+      case "horizontalRule":
+        return <hr key={idx} />;
+
+      default:
+        return null;
+    }
+  }
 
   return (
     <>
       <div className="story-prose py-8 px-4 sm:px-0">
-        {/* Opening paragraphs */}
-        <p>{paragraphs[0]}</p>
-        {paragraphs[1] && <p>{paragraphs[1]}</p>}
-        {paragraphs[2] && <p>{paragraphs[2]}</p>}
+        {visible.map((node, idx) => renderNode(node, idx))}
 
-        {/* Scene break */}
-        {!teaserLimit && paragraphs.length > 3 && <hr />}
-
-        {/* Inline image / GIF placeholder */}
-        {!teaserLimit && (
-          <figure className="my-8">
-            <button
-              onClick={() => setLightboxSrc("/api/placeholder/800/500")}
-              className="w-full cursor-pointer group block"
-            >
-              <div className="w-full h-56 sm:h-72 rounded-lg bg-surface-hover border border-border flex flex-col items-center justify-center gap-3 group-hover:border-accent/40 transition-colors">
-                <ImageIcon size={32} className="text-muted" />
-                <span className="text-sm text-muted">
-                  Inline image or GIF would appear here
-                </span>
-                <span className="text-xs text-muted/60">
-                  Click for fullscreen
-                </span>
-              </div>
-            </button>
-          </figure>
+        {hasMore && (
+          <div className="text-center text-muted italic mt-4">
+            Content continues...
+          </div>
         )}
 
-        {/* Remaining paragraphs */}
-        {paragraphs.slice(3).map((p, i) => (
-          <p key={i + 3}>{p}</p>
-        ))}
-
-        {/* Second scene break if showing full content */}
-        {!teaserLimit && <hr />}
-
-        {/* A closing beat (only in full mode) */}
-        {!teaserLimit && (
-          <p className="italic text-muted text-center" style={{ textIndent: 0 }}>
+        {!teaserLimit && nodes.length > 0 && (
+          <p className="italic text-muted text-center mt-8" style={{ textIndent: 0 }}>
             End of chapter
           </p>
         )}
       </div>
 
-      {/* Lightbox */}
       {lightboxSrc && (
         <Lightbox
           src={lightboxSrc}

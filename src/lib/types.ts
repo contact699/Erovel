@@ -80,7 +80,7 @@ export interface TipTapNode {
 
 // Chat bubble editor content
 export interface ChatContent {
-  type: "chat";
+  type?: "chat";
   characters: ChatCharacter[];
   messages: ChatMessage[];
 }
@@ -99,7 +99,7 @@ export interface ChatMessage {
   text: string;
   media_url: string | null;
   media_type: MediaType | null;
-  order: number;
+  order?: number;
 }
 
 export interface Media {
