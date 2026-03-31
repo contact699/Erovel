@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FollowButton } from "@/components/monetization/follow-button";
 import { TipButton } from "@/components/monetization/tip-button";
 import { SubscribeButton } from "@/components/monetization/subscribe-button";
 import {
@@ -16,12 +17,15 @@ import {
   estimateReadingTime,
 } from "@/lib/utils";
 import { useSubscriptionStore } from "@/store/subscription-store";
+import { useAuthStore } from "@/store/auth-store";
 import {
   getStoryBySlug,
   getChapters,
   getComments,
+  addComment,
 } from "@/lib/supabase/queries";
 import type { Story, Chapter, Comment } from "@/lib/types";
+import { ReportButton } from "@/components/ui/report-button";
 import {
   Eye,
   MessageCircle,
@@ -65,7 +69,10 @@ export default function StoryPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentBody, setCommentBody] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
 
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
   const unlocked = story
     ? isContentUnlocked(story.id, story.creator_id)
@@ -202,6 +209,9 @@ export default function StoryPage() {
                 )}
               </p>
             </div>
+            {story.creator && (
+              <FollowButton creatorId={story.creator.id} creatorName={story.creator.display_name} />
+            )}
           </div>
 
           {/* Stats row */}
@@ -291,6 +301,7 @@ export default function StoryPage() {
               >
                 <BookMarked size={16} />
               </button>
+              <ReportButton targetType="story" targetId={story.id} />
             </div>
           </div>
         </section>
@@ -385,23 +396,69 @@ export default function StoryPage() {
           </h2>
 
           {/* Comment form */}
-          <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-            <Textarea
-              placeholder="Share your thoughts on this story..."
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              className="min-h-[80px]"
-            />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                disabled={!commentBody.trim()}
-                onClick={() => setCommentBody("")}
-              >
-                Post Comment
-              </Button>
+          {isAuthenticated && user ? (
+            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Avatar
+                  src={user.avatar_url}
+                  name={user.display_name || ""}
+                  size="sm"
+                />
+                <span className="text-sm font-medium">{user.display_name}</span>
+              </div>
+              <Textarea
+                placeholder="Share your thoughts on this story..."
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                className="min-h-[80px]"
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!commentBody.trim() || submittingComment}
+                  onClick={async () => {
+                    if (!commentBody.trim() || !story || !user) return;
+                    setSubmittingComment(true);
+                    try {
+                      const newComment = await addComment({
+                        story_id: story.id,
+                        user_id: user.id,
+                        body: commentBody.trim(),
+                      });
+                      if (newComment) {
+                        setComments((prev) => [newComment as Comment, ...prev]);
+                        setCommentBody("");
+                      }
+                    } catch {
+                      // Silently handle errors
+                    } finally {
+                      setSubmittingComment(false);
+                    }
+                  }}
+                >
+                  {submittingComment ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin mr-1" />
+                      Posting...
+                    </>
+                  ) : (
+                    "Post Comment"
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-xl p-6 text-center space-y-2">
+              <p className="text-muted text-sm">
+                Log in to comment on this story.
+              </p>
+              <Link href="/login">
+                <Button variant="secondary" size="sm">
+                  Log in to comment
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {/* Comment list */}
           <div className="space-y-4">

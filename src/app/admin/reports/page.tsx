@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockReports } from "@/lib/mock-data";
+import { useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/store/auth-store";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  Loader2,
 } from "lucide-react";
 
 const statusFilterOptions = [
@@ -42,18 +44,113 @@ function getStatusBadge(status: ReportStatus) {
 }
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<Report[]>(mockReports);
+  const { user } = useAuthStore();
+  const [reports, setReports] = useState<Report[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredReports =
-    statusFilter === "all"
-      ? reports
-      : reports.filter((r) => r.status === statusFilter);
+  const fetchReports = useCallback(async () => {
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Database not configured");
+      setLoading(false);
+      return;
+    }
 
-  function updateReportStatus(id: string, status: ReportStatus) {
-    setReports((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status } : r))
+    try {
+      let query = supabase
+        .from("reports")
+        .select("*, reporter:profiles!reports_reporter_id_fkey(*)")
+        .order("created_at", { ascending: false });
+
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        setError(fetchError.message);
+        return;
+      }
+
+      setReports((data ?? []) as unknown as Report[]);
+    } catch {
+      setError("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (user?.role === "admin") {
+      setLoading(true);
+      fetchReports();
+    }
+  }, [user, fetchReports]);
+
+  async function updateReportStatus(id: string, status: ReportStatus) {
+    const supabase = createClient();
+    if (!supabase) return;
+
+    setUpdating(id);
+    try {
+      const { error: updateError } = await supabase
+        .from("reports")
+        .update({ status })
+        .eq("id", id);
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+
+      // Update local state
+      setReports((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status } : r))
+      );
+    } catch {
+      setError("Failed to update report");
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted">Access denied. Admin role required.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-muted" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <p className="text-sm text-danger">{error}</p>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            fetchReports();
+          }}
+        >
+          Retry
+        </Button>
+      </div>
     );
   }
 
@@ -107,7 +204,7 @@ export default function AdminReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredReports.length === 0 ? (
+              {reports.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -117,7 +214,7 @@ export default function AdminReportsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredReports.map((report) => (
+                reports.map((report) => (
                   <>
                     <tr
                       key={report.id}
@@ -155,10 +252,17 @@ export default function AdminReportsPage() {
                               e.stopPropagation();
                               updateReportStatus(report.id, "reviewed");
                             }}
-                            disabled={report.status !== "pending"}
+                            disabled={
+                              report.status !== "pending" ||
+                              updating === report.id
+                            }
                             title="Review"
                           >
-                            <Eye size={14} />
+                            {updating === report.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Eye size={14} />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
@@ -169,7 +273,8 @@ export default function AdminReportsPage() {
                             }}
                             disabled={
                               report.status === "resolved" ||
-                              report.status === "dismissed"
+                              report.status === "dismissed" ||
+                              updating === report.id
                             }
                             title="Resolve"
                           >
@@ -184,7 +289,8 @@ export default function AdminReportsPage() {
                             }}
                             disabled={
                               report.status === "resolved" ||
-                              report.status === "dismissed"
+                              report.status === "dismissed" ||
+                              updating === report.id
                             }
                             title="Dismiss"
                           >
@@ -244,12 +350,12 @@ export default function AdminReportsPage() {
 
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-border">
-          {filteredReports.length === 0 ? (
+          {reports.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-muted">
               No reports found.
             </div>
           ) : (
-            filteredReports.map((report) => (
+            reports.map((report) => (
               <div key={report.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -277,9 +383,16 @@ export default function AdminReportsPage() {
                       onClick={() =>
                         updateReportStatus(report.id, "reviewed")
                       }
-                      disabled={report.status !== "pending"}
+                      disabled={
+                        report.status !== "pending" ||
+                        updating === report.id
+                      }
                     >
-                      <Eye size={14} />
+                      {updating === report.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Eye size={14} />
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
@@ -289,7 +402,8 @@ export default function AdminReportsPage() {
                       }
                       disabled={
                         report.status === "resolved" ||
-                        report.status === "dismissed"
+                        report.status === "dismissed" ||
+                        updating === report.id
                       }
                     >
                       <CheckCircle size={14} className="text-success" />
@@ -302,7 +416,8 @@ export default function AdminReportsPage() {
                       }
                       disabled={
                         report.status === "resolved" ||
-                        report.status === "dismissed"
+                        report.status === "dismissed" ||
+                        updating === report.id
                       }
                     >
                       <XCircle size={14} className="text-muted" />

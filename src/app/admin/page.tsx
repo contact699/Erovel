@@ -1,46 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { mockReports } from "@/lib/mock-data";
-import { formatDate, formatCurrency, formatNumber } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/store/auth-store";
+import { formatDate, formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { Report } from "@/lib/types";
 import {
   Users,
   BookOpen,
-  DollarSign,
   Flag,
   ArrowRight,
-  TrendingUp,
   Eye,
+  Loader2,
+  FileText,
 } from "lucide-react";
 
-const platformMetrics = [
-  {
-    label: "Total Users",
-    value: formatNumber(12847),
-    icon: Users,
-    change: "+8.2%",
-  },
-  {
-    label: "Total Stories",
-    value: formatNumber(3421),
-    icon: BookOpen,
-    change: "+12.5%",
-  },
-  {
-    label: "Total Revenue",
-    value: formatCurrency(89420),
-    icon: DollarSign,
-    change: "+15.3%",
-  },
-  {
-    label: "Active Reports",
-    value: mockReports.filter((r) => r.status === "pending").length.toString(),
-    icon: Flag,
-    change: "",
-  },
-];
+interface DashboardMetrics {
+  totalUsers: number;
+  totalStories: number;
+  publishedStories: number;
+  pendingReports: number;
+}
 
 const reportStatusVariant: Record<string, "default" | "accent" | "success" | "danger"> = {
   pending: "default",
@@ -50,6 +33,111 @@ const reportStatusVariant: Record<string, "default" | "accent" | "success" | "da
 };
 
 export default function AdminDashboardPage() {
+  const { user } = useAuthStore();
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [recentReports, setRecentReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      const supabase = createClient();
+      if (!supabase) {
+        setError("Database not configured");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch all metrics in parallel
+        const [usersRes, storiesRes, publishedRes, pendingReportsRes, recentReportsRes] =
+          await Promise.all([
+            supabase.from("profiles").select("id", { count: "exact", head: true }),
+            supabase.from("stories").select("id", { count: "exact", head: true }),
+            supabase
+              .from("stories")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "published"),
+            supabase
+              .from("reports")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "pending"),
+            supabase
+              .from("reports")
+              .select("*, reporter:profiles!reports_reporter_id_fkey(*)")
+              .order("created_at", { ascending: false })
+              .limit(5),
+          ]);
+
+        setMetrics({
+          totalUsers: usersRes.count ?? 0,
+          totalStories: storiesRes.count ?? 0,
+          publishedStories: publishedRes.count ?? 0,
+          pendingReports: pendingReportsRes.count ?? 0,
+        });
+
+        if (recentReportsRes.data) {
+          setRecentReports(recentReportsRes.data as unknown as Report[]);
+        }
+      } catch {
+        setError("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (user?.role === "admin") {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted">Access denied. Admin role required.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-muted" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-danger">{error}</p>
+      </div>
+    );
+  }
+
+  const platformMetrics = [
+    {
+      label: "Total Users",
+      value: formatNumber(metrics?.totalUsers ?? 0),
+      icon: Users,
+    },
+    {
+      label: "Total Stories",
+      value: formatNumber(metrics?.totalStories ?? 0),
+      icon: BookOpen,
+    },
+    {
+      label: "Published Stories",
+      value: formatNumber(metrics?.publishedStories ?? 0),
+      icon: FileText,
+    },
+    {
+      label: "Pending Reports",
+      value: (metrics?.pendingReports ?? 0).toString(),
+      icon: Flag,
+    },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -76,12 +164,6 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
               <p className="text-2xl font-bold">{metric.value}</p>
-              {metric.change && (
-                <div className="flex items-center gap-1 mt-1 text-xs text-success">
-                  <TrendingUp size={12} />
-                  {metric.change} from last month
-                </div>
-              )}
             </div>
           );
         })}
@@ -99,13 +181,13 @@ export default function AdminDashboardPage() {
               </Button>
             </Link>
           </div>
-          {mockReports.length === 0 ? (
+          {recentReports.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-muted">
               No reports to review.
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {mockReports.map((report) => (
+              {recentReports.map((report) => (
                 <div
                   key={report.id}
                   className="flex items-start gap-4 px-5 py-4"
@@ -160,8 +242,7 @@ export default function AdminDashboardPage() {
                   <div>
                     <p className="text-sm font-medium">Reports Management</p>
                     <p className="text-xs text-muted">
-                      {mockReports.filter((r) => r.status === "pending").length}{" "}
-                      pending
+                      {metrics?.pendingReports ?? 0} pending
                     </p>
                   </div>
                   <ArrowRight size={14} className="ml-auto text-muted" />
@@ -189,23 +270,34 @@ export default function AdminDashboardPage() {
             <h2 className="font-semibold mb-4">Platform Health</h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted">Uptime</span>
-                <span className="text-success font-medium">99.9%</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted">Avg. Response</span>
-                <span className="font-medium">142ms</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted flex items-center gap-1">
                   <Eye size={13} />
-                  Views Today
+                  Total Users
                 </span>
-                <span className="font-medium">{formatNumber(24300)}</span>
+                <span className="font-medium">
+                  {formatNumber(metrics?.totalUsers ?? 0)}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted">New Signups (24h)</span>
-                <span className="font-medium">87</span>
+                <span className="text-muted">Published Stories</span>
+                <span className="font-medium">
+                  {formatNumber(metrics?.publishedStories ?? 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Draft Stories</span>
+                <span className="font-medium">
+                  {formatNumber(
+                    (metrics?.totalStories ?? 0) -
+                      (metrics?.publishedStories ?? 0)
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Pending Reports</span>
+                <span className="font-medium">
+                  {metrics?.pendingReports ?? 0}
+                </span>
               </div>
             </div>
           </div>

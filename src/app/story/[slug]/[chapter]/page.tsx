@@ -11,6 +11,7 @@ import { ChatReader } from "@/components/story/chat-reader";
 import { ProseReader } from "@/components/story/prose-reader";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import { useAuthStore } from "@/store/auth-store";
+import { ReportButton } from "@/components/ui/report-button";
 import {
   getStoryBySlug,
   getChapterWithContent,
@@ -368,6 +369,7 @@ export default function ChapterPage() {
               storyTitle={story.title}
               variant="icon"
             />
+            <ReportButton targetType="story" targetId={story.id} />
           </div>
         </div>
       </div>

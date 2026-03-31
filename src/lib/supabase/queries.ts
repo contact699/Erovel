@@ -353,6 +353,74 @@ export async function searchStories(query: string) {
 }
 
 // ============================================================
+// FOLLOWS
+// ============================================================
+
+export async function followCreator(followerId: string, followingId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("follows")
+    .insert({ follower_id: followerId, following_id: followingId });
+  if (error && error.code !== "23505") throw error; // ignore duplicate
+}
+
+export async function unfollowCreator(followerId: string, followingId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId);
+  if (error) throw error;
+}
+
+export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
+  const supabase = createClient();
+  if (!supabase) return false;
+  const { data } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId)
+    .maybeSingle();
+  return !!data;
+}
+
+export async function getFollowing(userId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("follows")
+    .select("following:profiles!following_id(id, username, display_name, avatar_url, bio, story_count, follower_count)")
+    .eq("follower_id", userId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+// ============================================================
+// REPORTS
+// ============================================================
+
+export async function submitReport(report: {
+  reporter_id: string;
+  target_type: "story" | "comment" | "profile";
+  target_id: string;
+  reason: string;
+}) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("reports")
+    .insert(report)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 

@@ -5,12 +5,14 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
+import { FollowButton } from "@/components/monetization/follow-button";
 import { TipButton } from "@/components/monetization/tip-button";
 import { SubscribeButton } from "@/components/monetization/subscribe-button";
 import { StoryCard } from "@/components/story/story-card";
 import { getProfileByUsername, getStoriesByCreator } from "@/lib/supabase/queries";
 import type { Profile, Story } from "@/lib/types";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { ReportButton } from "@/components/ui/report-button";
 import { CheckCircle, BookOpen, Users, Calendar } from "lucide-react";
 
 export default function CreatorProfilePage() {
@@ -114,8 +116,10 @@ export default function CreatorProfilePage() {
             <p className="text-muted text-sm">@{creator.username}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <FollowButton creatorId={creator.id} creatorName={creator.display_name} />
             <TipButton creatorName={creator.display_name} />
             <SubscribeButton targetType="creator" targetName={creator.display_name} creatorId={creator.id} price={9.99} />
+            <ReportButton targetType="profile" targetId={creator.id} />
           </div>
         </div>
         {creator.bio && (

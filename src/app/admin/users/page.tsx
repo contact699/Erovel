@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockProfiles, mockReader } from "@/lib/mock-data";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/store/auth-store";
 import { formatDate } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import type { Profile } from "@/lib/types";
 import {
@@ -16,9 +18,15 @@ import {
   Pause,
   CheckCircle,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
-const allUsers: Profile[] = [...mockProfiles, mockReader];
+const roleFilterOptions = [
+  { value: "all", label: "All Roles" },
+  { value: "reader", label: "Reader" },
+  { value: "creator", label: "Creator" },
+  { value: "admin", label: "Admin" },
+];
 
 function getRoleBadge(role: string) {
   switch (role) {
@@ -32,7 +40,12 @@ function getRoleBadge(role: string) {
 }
 
 export default function AdminUsersPage() {
+  const { user } = useAuthStore();
+  const [users, setUsers] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     action: "suspend" | "ban";
@@ -42,18 +55,58 @@ export default function AdminUsersPage() {
     Record<string, "suspended" | "banned">
   >({});
 
+  const fetchUsers = useCallback(async () => {
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Database not configured");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let query = supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (roleFilter !== "all") {
+        query = query.eq("role", roleFilter);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        setError(fetchError.message);
+        return;
+      }
+
+      setUsers((data ?? []) as Profile[]);
+    } catch {
+      setError("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  }, [roleFilter]);
+
+  useEffect(() => {
+    if (user?.role === "admin") {
+      setLoading(true);
+      fetchUsers();
+    }
+  }, [user, fetchUsers]);
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return allUsers;
+    if (!searchQuery.trim()) return users;
     const q = searchQuery.toLowerCase();
-    return allUsers.filter(
+    return users.filter(
       (u) =>
         u.username.toLowerCase().includes(q) ||
         u.display_name.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, users]);
 
-  function openConfirm(action: "suspend" | "ban", user: Profile) {
-    setConfirmModal({ open: true, action, user });
+  function openConfirm(action: "suspend" | "ban", targetUser: Profile) {
+    setConfirmModal({ open: true, action, user: targetUser });
   }
 
   function executeAction() {
@@ -66,6 +119,41 @@ export default function AdminUsersPage() {
     setConfirmModal({ open: false, action: "suspend", user: null });
   }
 
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted">Access denied. Admin role required.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-muted" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <p className="text-sm text-danger">{error}</p>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            fetchUsers();
+          }}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -76,17 +164,26 @@ export default function AdminUsersPage() {
             Manage platform users and accounts
           </p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <Input
-            placeholder="Search by username..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-40">
+            <Select
+              options={roleFilterOptions}
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            />
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+            />
+            <Input
+              placeholder="Search by username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
@@ -134,31 +231,31 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => {
-                  const userStatus = actionedUsers[user.id];
+                filteredUsers.map((u) => {
+                  const userStatus = actionedUsers[u.id];
                   return (
                     <tr
-                      key={user.id}
+                      key={u.id}
                       className="hover:bg-surface-hover/30 transition-colors"
                     >
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar
-                            src={user.avatar_url}
-                            name={user.display_name}
+                            src={u.avatar_url}
+                            name={u.display_name}
                             size="sm"
                           />
                           <span className="font-medium">
-                            {user.display_name}
+                            {u.display_name}
                           </span>
                         </div>
                       </td>
                       <td className="px-5 py-3 text-muted">
-                        @{user.username}
+                        @{u.username}
                       </td>
-                      <td className="px-5 py-3">{getRoleBadge(user.role)}</td>
+                      <td className="px-5 py-3">{getRoleBadge(u.role)}</td>
                       <td className="px-5 py-3">
-                        {user.is_verified ? (
+                        {u.is_verified ? (
                           <CheckCircle
                             size={16}
                             className="text-success"
@@ -167,9 +264,9 @@ export default function AdminUsersPage() {
                           <span className="text-muted text-xs">No</span>
                         )}
                       </td>
-                      <td className="px-5 py-3">{user.story_count}</td>
+                      <td className="px-5 py-3">{u.story_count}</td>
                       <td className="px-5 py-3 text-muted whitespace-nowrap">
-                        {formatDate(user.created_at)}
+                        {formatDate(u.created_at)}
                       </td>
                       <td className="px-5 py-3">
                         {userStatus === "banned" ? (
@@ -189,7 +286,7 @@ export default function AdminUsersPage() {
                             size="sm"
                             title="View Profile"
                             onClick={() =>
-                              window.open(`/creator/${user.username}`, "_blank")
+                              window.open(`/creator/${u.username}`, "_blank")
                             }
                           >
                             <ExternalLink size={14} />
@@ -198,7 +295,7 @@ export default function AdminUsersPage() {
                             variant="ghost"
                             size="sm"
                             title="Suspend"
-                            onClick={() => openConfirm("suspend", user)}
+                            onClick={() => openConfirm("suspend", u)}
                             disabled={!!userStatus}
                           >
                             <Pause size={14} className="text-yellow-600" />
@@ -207,7 +304,7 @@ export default function AdminUsersPage() {
                             variant="ghost"
                             size="sm"
                             title="Ban"
-                            onClick={() => openConfirm("ban", user)}
+                            onClick={() => openConfirm("ban", u)}
                             disabled={userStatus === "banned"}
                           >
                             <Ban size={14} className="text-danger" />
@@ -229,22 +326,22 @@ export default function AdminUsersPage() {
               No users found.
             </div>
           ) : (
-            filteredUsers.map((user) => {
-              const userStatus = actionedUsers[user.id];
+            filteredUsers.map((u) => {
+              const userStatus = actionedUsers[u.id];
               return (
-                <div key={user.id} className="p-4 space-y-3">
+                <div key={u.id} className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <Avatar
-                      src={user.avatar_url}
-                      name={user.display_name}
+                      src={u.avatar_url}
+                      name={u.display_name}
                       size="md"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">
-                          {user.display_name}
+                          {u.display_name}
                         </span>
-                        {user.is_verified && (
+                        {u.is_verified && (
                           <ShieldCheck
                             size={14}
                             className="text-success shrink-0"
@@ -252,14 +349,14 @@ export default function AdminUsersPage() {
                         )}
                       </div>
                       <span className="text-xs text-muted">
-                        @{user.username}
+                        @{u.username}
                       </span>
                     </div>
-                    {getRoleBadge(user.role)}
+                    {getRoleBadge(u.role)}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                    <span>{user.story_count} stories</span>
-                    <span>Joined {formatDate(user.created_at)}</span>
+                    <span>{u.story_count} stories</span>
+                    <span>Joined {formatDate(u.created_at)}</span>
                     {userStatus === "banned" ? (
                       <Badge variant="danger">Banned</Badge>
                     ) : userStatus === "suspended" ? (
@@ -275,7 +372,7 @@ export default function AdminUsersPage() {
                       variant="secondary"
                       size="sm"
                       onClick={() =>
-                        window.open(`/creator/${user.username}`, "_blank")
+                        window.open(`/creator/${u.username}`, "_blank")
                       }
                     >
                       <ExternalLink size={13} />
@@ -284,7 +381,7 @@ export default function AdminUsersPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => openConfirm("suspend", user)}
+                      onClick={() => openConfirm("suspend", u)}
                       disabled={!!userStatus}
                     >
                       <Pause size={13} />
@@ -293,7 +390,7 @@ export default function AdminUsersPage() {
                     <Button
                       variant="danger"
                       size="sm"
-                      onClick={() => openConfirm("ban", user)}
+                      onClick={() => openConfirm("ban", u)}
                       disabled={userStatus === "banned"}
                     >
                       <Ban size={13} />
