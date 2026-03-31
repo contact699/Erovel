@@ -14,9 +14,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Erovel - Stories that ignite",
-  description: "A platform for adult fiction creators and readers. Prose and chat-style stories with creator monetization.",
+  title: {
+    default: "Erovel - Stories that ignite",
+    template: "%s | Erovel",
+  },
+  description:
+    "A platform for adult fiction creators and readers. Prose and chat-style stories with creator monetization.",
   manifest: "/manifest.json",
+  metadataBase: new URL("https://erovel.com"),
+  openGraph: {
+    type: "website",
+    siteName: "Erovel",
+    title: "Erovel - Stories that ignite",
+    description: "A platform for adult fiction creators and readers.",
+  },
+  twitter: {
+    card: "summary",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

@@ -107,6 +107,7 @@ export async function createStory(story: {
   category_id: string;
   status: "draft" | "published";
   is_gated: boolean;
+  price?: number;
   cover_image_url?: string;
 }) {
   const supabase = createClient();
@@ -171,7 +172,8 @@ export async function createChapter(chapter: {
   story_id: string;
   chapter_number: number;
   title: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "scheduled";
+  publish_at?: string;
 }) {
   const supabase = createClient();
   if (!supabase) return null;
@@ -418,6 +420,47 @@ export async function submitReport(report: {
     .single();
   if (error) throw error;
   return data;
+}
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+
+export async function getCreatorAnalytics(creatorId: string) {
+  const supabase = createClient();
+  if (!supabase) return null;
+
+  // Get all stories for this creator
+  const { data: stories } = await supabase
+    .from("stories")
+    .select("id, title, slug, view_count, tip_total, comment_count, format, status, created_at")
+    .eq("creator_id", creatorId)
+    .order("view_count", { ascending: false });
+
+  // Get daily view counts for last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: dailyViews } = await supabase
+    .from("story_views")
+    .select("viewed_at, story_id")
+    .in("story_id", (stories || []).map((s: { id: string }) => s.id))
+    .gte("viewed_at", thirtyDaysAgo.toISOString().split("T")[0]);
+
+  return {
+    stories: stories || [],
+    dailyViews: dailyViews || [],
+  };
+}
+
+export async function recordStoryView(storyId: string, chapterId: string | null, viewerId: string | null) {
+  const supabase = createClient();
+  if (!supabase) return;
+  await supabase.from("story_views").insert({
+    story_id: storyId,
+    chapter_id: chapterId,
+    viewer_id: viewerId,
+  });
 }
 
 // ============================================================

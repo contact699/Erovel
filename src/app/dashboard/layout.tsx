@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   BookOpen,
+  BarChart3,
   DollarSign,
   Download,
   Settings,
@@ -21,6 +22,7 @@ import {
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/stories", label: "Stories", icon: BookOpen },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign },
   { href: "/dashboard/import", label: "Import", icon: Download },
   { href: "/settings", label: "Settings", icon: Settings },

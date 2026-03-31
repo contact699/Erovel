@@ -47,6 +47,7 @@ interface ChapterDraft {
   chapterNumber: number;
   proseContent?: JSONContent;
   chatContent?: ChatContent;
+  publishAt?: string; // ISO timestamp for scheduled publish
 }
 
 export default function NewStoryPage() {
@@ -65,6 +66,7 @@ export default function NewStoryPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
+  const [storyPrice, setStoryPrice] = useState(0);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
 
   // DB-persisted story ID (set after first save)
@@ -196,6 +198,7 @@ export default function NewStoryPage() {
         category_id: categoryId || null!,
         status: "draft",
         is_gated: isGated,
+        price: isGated ? storyPrice : 0,
         cover_image_url: coverImageUrl || undefined,
       });
       if (!story) throw new Error("Failed to create story");
@@ -269,6 +272,26 @@ export default function NewStoryPage() {
     }
   };
 
+  const computeScheduleDates = (): Map<string, string> => {
+    const dates = new Map<string, string>();
+    if (!startDate || !releaseCadence) return dates;
+
+    const cadenceDays = parseInt(releaseCadence, 10);
+    if (isNaN(cadenceDays) || cadenceDays <= 0) return dates;
+
+    const baseDate = new Date(startDate + "T00:00:00");
+    if (isNaN(baseDate.getTime())) return dates;
+
+    for (const ch of chapters) {
+      // Chapter 1 publishes on startDate, chapter 2 on startDate + cadence, etc.
+      const offset = (ch.chapterNumber - 1) * cadenceDays;
+      const publishDate = new Date(baseDate);
+      publishDate.setDate(publishDate.getDate() + offset);
+      dates.set(ch.id, publishDate.toISOString());
+    }
+    return dates;
+  };
+
   const handlePublish = async () => {
     if (!storyId) return;
     setPublishing(true);
@@ -276,10 +299,23 @@ export default function NewStoryPage() {
       // Save all chapter content first
       await handleSaveDraft();
 
-      // Set all chapters to published
+      const scheduleDates = computeScheduleDates();
+      const now = new Date();
+
+      // Set chapters to published or scheduled based on schedule dates
       for (const ch of chapters) {
         if (ch.dbId) {
-          await updateChapter(ch.dbId, { status: "published" });
+          const publishAt = scheduleDates.get(ch.id);
+          if (publishAt && new Date(publishAt) > now) {
+            // Future date — schedule the chapter
+            await updateChapter(ch.dbId, {
+              status: "scheduled",
+              publish_at: publishAt,
+            });
+          } else {
+            // No schedule or date is in the past — publish immediately
+            await updateChapter(ch.dbId, { status: "published" });
+          }
         }
       }
 
@@ -519,28 +555,41 @@ export default function NewStoryPage() {
             </div>
 
             {/* Gated toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="text-sm font-medium">Gated Content</p>
-                <p className="text-xs text-muted">
-                  Require a subscription to read this story
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsGated(!isGated)}
-                className={cn(
-                  "relative h-6 w-11 rounded-full transition-colors cursor-pointer",
-                  isGated ? "bg-accent" : "bg-border"
-                )}
-              >
-                <span
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Gated Content</p>
+                  <p className="text-xs text-muted">
+                    Require a subscription to read this story
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGated(!isGated)}
                   className={cn(
-                    "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-                    isGated && "translate-x-5"
+                    "relative h-6 w-11 rounded-full transition-colors cursor-pointer",
+                    isGated ? "bg-accent" : "bg-border"
                   )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                      isGated && "translate-x-5"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {isGated && (
+                <Input
+                  label="Unlock Price ($) — set to 0 for subscription-only"
+                  id="story_price"
+                  type="number"
+                  value={String(storyPrice)}
+                  onChange={(e) => setStoryPrice(Number(e.target.value))}
+                  placeholder="0.00"
                 />
-              </button>
+              )}
             </div>
 
             {/* Cover image */}
@@ -657,6 +706,22 @@ export default function NewStoryPage() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                   />
+                  {startDate && releaseCadence && (
+                    <div className="space-y-1 pt-1">
+                      <p className="text-xs font-medium text-muted">Preview</p>
+                      {chapters.map((ch) => {
+                        const cadenceDays = parseInt(releaseCadence, 10);
+                        const offset = (ch.chapterNumber - 1) * cadenceDays;
+                        const d = new Date(startDate + "T00:00:00");
+                        d.setDate(d.getDate() + offset);
+                        return (
+                          <p key={ch.id} className="text-xs text-muted truncate">
+                            Ch {ch.chapterNumber}: {d.toLocaleDateString()}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

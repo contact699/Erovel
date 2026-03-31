@@ -21,6 +21,7 @@ export interface Profile {
   is_verified: boolean;
   follower_count: number;
   story_count: number;
+  subscription_price: number;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ export interface Story {
   tags: Tag[];
   status: StoryStatus;
   is_gated: boolean;
+  price: number;
   chapter_count: number;
   published_chapter_count: number;
   view_count: number;

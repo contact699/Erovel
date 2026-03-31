@@ -29,6 +29,7 @@ export const mockCreator: Profile = {
   is_verified: true,
   follower_count: 1243,
   story_count: 12,
+  subscription_price: 9.99,
   created_at: "2025-06-15T00:00:00Z",
 };
 
@@ -42,6 +43,7 @@ export const mockCreator2: Profile = {
   is_verified: true,
   follower_count: 856,
   story_count: 8,
+  subscription_price: 14.99,
   created_at: "2025-08-01T00:00:00Z",
 };
 
@@ -55,6 +57,7 @@ export const mockCreator3: Profile = {
   is_verified: true,
   follower_count: 2104,
   story_count: 5,
+  subscription_price: 12.99,
   created_at: "2025-05-20T00:00:00Z",
 };
 
@@ -68,6 +71,7 @@ export const mockReader: Profile = {
   is_verified: false,
   follower_count: 0,
   story_count: 0,
+  subscription_price: 9.99,
   created_at: "2025-09-01T00:00:00Z",
 };
 
@@ -113,6 +117,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[0], mockTags[5]],
     status: "published",
     is_gated: true,
+    price: 4.99,
     chapter_count: 12,
     published_chapter_count: 8,
     view_count: 15420,
@@ -137,6 +142,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[8], mockTags[3]],
     status: "published",
     is_gated: false,
+    price: 0,
     chapter_count: 6,
     published_chapter_count: 6,
     view_count: 23100,
@@ -161,6 +167,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[0], mockTags[4]],
     status: "published",
     is_gated: true,
+    price: 6.99,
     chapter_count: 20,
     published_chapter_count: 14,
     view_count: 31200,
@@ -185,6 +192,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[8], mockTags[3]],
     status: "published",
     is_gated: false,
+    price: 0,
     chapter_count: 3,
     published_chapter_count: 3,
     view_count: 8900,
@@ -209,6 +217,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[2], mockTags[6]],
     status: "published",
     is_gated: true,
+    price: 3.99,
     chapter_count: 8,
     published_chapter_count: 5,
     view_count: 19800,
@@ -233,6 +242,7 @@ export const mockStories: Story[] = [
     tags: [mockTags[5], mockTags[4]],
     status: "published",
     is_gated: false,
+    price: 0,
     chapter_count: 5,
     published_chapter_count: 5,
     view_count: 12300,

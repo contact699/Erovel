@@ -14,6 +14,7 @@ import {
   formatNumber,
   formatRelativeDate,
   formatDate,
+  formatCurrency,
   estimateReadingTime,
 } from "@/lib/utils";
 import { useSubscriptionStore } from "@/store/subscription-store";
@@ -169,6 +170,12 @@ export default function StoryPage() {
                 Premium
               </Badge>
             )}
+            {story.is_gated && story.price > 0 && (
+              <Badge variant="accent">
+                <DollarSign size={10} className="mr-1 inline" />
+                {formatCurrency(story.price)}
+              </Badge>
+            )}
             {story.category && (
               <Badge variant="outline">{story.category.name}</Badge>
             )}
@@ -260,12 +267,21 @@ export default function StoryPage() {
               </Link>
             )}
 
-            {story.is_gated && (
+            {story.is_gated && story.price > 0 && (
               <SubscribeButton
                 targetType="story"
                 targetName={story.title}
-                price={4.99}
+                price={story.price}
                 storyId={story.id}
+                creatorId={story.creator_id}
+              />
+            )}
+
+            {story.is_gated && story.creator && (
+              <SubscribeButton
+                targetType="creator"
+                targetName={story.creator.display_name}
+                price={story.creator.subscription_price || 9.99}
                 creatorId={story.creator_id}
               />
             )}

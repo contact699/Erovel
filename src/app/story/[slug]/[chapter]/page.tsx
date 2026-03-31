@@ -17,6 +17,7 @@ import {
   getChapterWithContent,
   getChapters,
   recordReading,
+  recordStoryView,
   updateBookmarkProgress,
 } from "@/lib/supabase/queries";
 import type { Story, Chapter, ChatContent } from "@/lib/types";
@@ -68,6 +69,11 @@ export default function ChapterPage() {
           ]);
           setChapters(chaptersData as Chapter[]);
           setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
+
+          // Record story view for all visitors (analytics)
+          if (chapterData) {
+            recordStoryView(storyData.id, chapterData.id, user?.id || null).catch(() => {});
+          }
 
           // Record reading and update bookmark progress if user is logged in
           if (user && chapterData) {

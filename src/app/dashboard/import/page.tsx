@@ -65,7 +65,8 @@ export default function ImportPage() {
   const [storyDescription, setStoryDescription] = useState("");
   const [category, setCategory] = useState("other");
   const [format, setFormat] = useState<StoryFormat>("chat");
-  const [isGated] = useState(false);
+  const [isGated, setIsGated] = useState(false);
+  const [storyPrice, setStoryPrice] = useState(0);
 
   const [chapters, setChapters] = useState<ChapterImport[]>([]);
   const [fetchingAll, setFetchingAll] = useState(false);
@@ -300,6 +301,7 @@ export default function ImportPage() {
         category_id: category,
         status: asDraft ? "draft" : "published",
         is_gated: isGated,
+        price: isGated ? storyPrice : 0,
       });
 
       if (!story) throw new Error("Failed to create story");
@@ -341,6 +343,8 @@ export default function ImportPage() {
     setUrlsText("");
     setStoryTitle("");
     setStoryDescription("");
+    setIsGated(false);
+    setStoryPrice(0);
     setChapters([]);
     setError("");
     setPublished(false);
@@ -444,6 +448,40 @@ export default function ImportPage() {
                 onChange={(e) => setCategory(e.target.value)}
               />
             </div>
+
+            {/* Gated toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Gated Content</p>
+                <p className="text-xs text-muted">
+                  Require a subscription or payment to read
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGated(!isGated)}
+                className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer ${
+                  isGated ? "bg-accent" : "bg-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    isGated ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {isGated && (
+              <Input
+                label="Unlock Price ($) — set to 0 for subscription-only"
+                id="import_story_price"
+                type="number"
+                value={String(storyPrice)}
+                onChange={(e) => setStoryPrice(Number(e.target.value))}
+                placeholder="0.00"
+              />
+            )}
           </div>
 
           {/* URLs */}

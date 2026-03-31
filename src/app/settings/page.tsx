@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
+import { updateProfile } from "@/lib/supabase/queries";
 import {
   User,
   Lock,
   CreditCard,
+  DollarSign,
   Bell,
   BookOpen,
   Trash2,
@@ -36,6 +38,11 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Creator pricing state
+  const [subscriptionPrice, setSubscriptionPrice] = useState(
+    user?.subscription_price ?? 9.99
+  );
 
   // Creator payout state
   const [payoutMethod, setPayoutMethod] = useState("paxum");
@@ -217,6 +224,51 @@ export default function SettingsPage() {
           </Button>
         </div>
       </section>
+
+      {/* Pricing Settings (Creators only) */}
+      {isCreator && (
+        <section className="bg-surface border border-border rounded-xl p-5 sm:p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <DollarSign size={18} className="text-accent" />
+            <h2 className="text-lg font-semibold">Pricing</h2>
+          </div>
+
+          <p className="text-sm text-muted">
+            Set the monthly price readers pay to subscribe to your content.
+          </p>
+
+          <Input
+            label="Monthly Subscription Price ($)"
+            id="subscription_price"
+            type="number"
+            value={String(subscriptionPrice)}
+            onChange={(e) => setSubscriptionPrice(Number(e.target.value))}
+            placeholder="9.99"
+          />
+
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={async () => {
+                setSavingSection("pricing");
+                try {
+                  await updateProfile(currentUser.id, {
+                    subscription_price: subscriptionPrice,
+                  });
+                } catch {
+                  // handle silently
+                } finally {
+                  setSavingSection(null);
+                }
+              }}
+              loading={savingSection === "pricing"}
+            >
+              <Save size={14} />
+              Save Pricing
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Payout Settings (Creators only) */}
       {isCreator && (
