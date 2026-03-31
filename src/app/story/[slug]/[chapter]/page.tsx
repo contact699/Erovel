@@ -211,7 +211,7 @@ export default function ChapterPage() {
             {isChat && chatContent ? (
               <ChatReader content={chatContent} teaserLimit={5} />
             ) : (
-              <ProseReader content={contentJson as any} teaserLimit={2} />
+              <ProseReader content={contentJson as { type?: string; content?: unknown[] }} teaserLimit={2} />
             )}
 
             {/* Blur overlay */}
@@ -256,7 +256,7 @@ export default function ChapterPage() {
             {isChat && chatContent ? (
               <ChatReader content={chatContent} />
             ) : (
-              <ProseReader content={contentJson as any} />
+              <ProseReader content={contentJson as { type?: string; content?: unknown[] }} />
             )}
           </>
         )}
