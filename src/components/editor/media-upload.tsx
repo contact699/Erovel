@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Upload, X, FileImage, FileVideo } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+
 
 interface MediaUploadProps {
   onUpload: (url: string, file: File) => void;
@@ -117,7 +117,6 @@ export function MediaUpload({
               <FileVideo className="h-12 w-12 text-muted" />
             </div>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
               alt="Preview"

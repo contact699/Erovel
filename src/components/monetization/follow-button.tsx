@@ -12,7 +12,7 @@ interface FollowButtonProps {
   onFollowChange?: (following: boolean) => void;
 }
 
-export function FollowButton({ creatorId, creatorName, onFollowChange }: FollowButtonProps) {
+export function FollowButton({ creatorId, onFollowChange }: FollowButtonProps) {
   const { user, isAuthenticated } = useAuthStore();
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(false);

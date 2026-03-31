@@ -14,7 +14,6 @@ import {
   Download,
   Settings,
   Menu,
-  X,
   CheckCircle,
   LogOut,
 } from "lucide-react";

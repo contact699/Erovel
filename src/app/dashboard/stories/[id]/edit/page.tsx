@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   BookOpen,
   MessageCircle,
@@ -64,7 +64,7 @@ export default function EditStoryPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [, setCoverImageUrl] = useState<string | null>(null);
 
   // Chapters
   const [chapters, setChapters] = useState<ChapterDraft[]>([]);
@@ -770,7 +770,6 @@ function ProsePreview({ content }: { content: JSONContent }) {
 
     if (node.type === "image") {
       return (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           key={idx}
           src={node.attrs?.src as string}

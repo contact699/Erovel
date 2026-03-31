@@ -5,7 +5,6 @@ import {
   Plus,
   Trash2,
   Edit3,
-  GripVertical,
   ChevronDown,
   ChevronUp,
   ImagePlus,
@@ -392,7 +391,6 @@ export function ChatEditor({
               {/* Media preview */}
               {msgMediaUrl && (
                 <div className="relative rounded-md border border-border overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={msgMediaUrl}
                     alt="Attachment"
@@ -552,7 +550,6 @@ export function ChatEditor({
                     {char?.name}
                   </span>
                   {msg.media_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={msg.media_url}
                       alt=""

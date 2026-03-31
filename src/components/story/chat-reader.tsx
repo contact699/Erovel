@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ChatContent, ChatCharacter, ChatMessage } from "@/lib/types";
+import type { ChatContent, ChatCharacter } from "@/lib/types";
 import { Avatar } from "@/components/ui/avatar";
 import { Lightbox } from "@/components/ui/lightbox";
 import { ImageIcon, Play } from "lucide-react";

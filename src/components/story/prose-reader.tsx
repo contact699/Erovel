@@ -12,14 +12,14 @@ interface ProseNode {
 }
 
 interface ProseReaderProps {
-  content?: { type?: string; content?: ProseNode[] };
+  content?: Record<string, unknown>;
   teaserLimit?: number;
 }
 
 export function ProseReader({ content, teaserLimit }: ProseReaderProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const nodes = content?.content || [];
+  const nodes = (Array.isArray(content?.content) ? content.content : []) as ProseNode[];
   const visible = teaserLimit ? nodes.slice(0, teaserLimit) : nodes;
   const hasMore = teaserLimit ? nodes.length > teaserLimit : false;
 

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,6 @@ import {
 } from "@/lib/supabase/queries";
 import {
   Download,
-  Image,
   CheckCircle,
   ArrowRight,
   Upload,
@@ -66,7 +65,7 @@ export default function ImportPage() {
   const [storyDescription, setStoryDescription] = useState("");
   const [category, setCategory] = useState("other");
   const [format, setFormat] = useState<StoryFormat>("chat");
-  const [isGated, setIsGated] = useState(false);
+  const [isGated] = useState(false);
 
   const [chapters, setChapters] = useState<ChapterImport[]>([]);
   const [fetchingAll, setFetchingAll] = useState(false);
