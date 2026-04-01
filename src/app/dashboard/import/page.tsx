@@ -290,6 +290,8 @@ export default function ImportPage() {
         0
       );
 
+      const firstImage = validChapters[0]?.images.find((img) => img.selected && img.type === "image");
+
       const story = await createStory({
         creator_id: user.id,
         title: storyTitle || "Untitled Story",
@@ -302,6 +304,7 @@ export default function ImportPage() {
         status: asDraft ? "draft" : "published",
         is_gated: isGated,
         price: isGated ? storyPrice : 0,
+        cover_image_url: firstImage?.url,
       });
 
       if (!story) throw new Error("Failed to create story");

@@ -24,6 +24,7 @@ export async function getPublishedStories(options?: {
   sort?: string;
   search?: string;
   limit?: number;
+  offset?: number;
 }) {
   const supabase = createClient();
   if (!supabase) return [];
@@ -57,9 +58,9 @@ export async function getPublishedStories(options?: {
       break;
   }
 
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
+  const limit = options?.limit || 12;
+  const offset = options?.offset || 0;
+  query = query.range(offset, offset + limit - 1);
 
   const { data } = await query;
   return data || [];

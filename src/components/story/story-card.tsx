@@ -42,8 +42,10 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
     <Link href={`/story/${story.slug}`} className="block group">
       <div className="bg-surface border border-border rounded-xl overflow-hidden hover:border-accent/30 transition-all hover:shadow-lg hover:shadow-accent/5">
         {/* Cover area */}
-        <div className="h-32 bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center relative">
-          {isChat ? (
+        <div className="h-32 bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center relative overflow-hidden">
+          {story.cover_image_url ? (
+            <img src={story.cover_image_url} alt="" className="w-full h-full object-cover" />
+          ) : isChat ? (
             <MessageSquare size={36} className="text-accent/40" />
           ) : (
             <BookOpen size={36} className="text-accent/40" />

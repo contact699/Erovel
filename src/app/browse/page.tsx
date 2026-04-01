@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { StoryCard } from "@/components/story/story-card";
+import { StoryCardSkeleton } from "@/components/ui/skeleton";
 import { Select } from "@/components/ui/select";
 import { formatNumber } from "@/lib/utils";
 import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
@@ -37,19 +38,45 @@ function BrowseContent() {
   const [stories, setStories] = useState<Story[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     async function load() {
+      setLoaded(false);
+      setPage(1);
+      setHasMore(true);
       const [storiesData, catsData] = await Promise.all([
-        getPublishedStories({ category: categoryFilter, format: formatFilter, sort }),
+        getPublishedStories({ category: categoryFilter, format: formatFilter, sort, limit: PAGE_SIZE, offset: 0 }),
         getCategories(),
       ]);
       setStories(storiesData);
       setCategories(catsData);
+      setHasMore(storiesData.length >= PAGE_SIZE);
       setLoaded(true);
     }
     load();
   }, [categoryFilter, formatFilter, sort]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextOffset = page * PAGE_SIZE;
+    const moreStories = await getPublishedStories({
+      category: categoryFilter,
+      format: formatFilter,
+      sort,
+      limit: PAGE_SIZE,
+      offset: nextOffset,
+    });
+    setStories((prev) => [...prev, ...moreStories]);
+    setHasMore(moreStories.length >= PAGE_SIZE);
+    setPage((prev) => prev + 1);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, page, categoryFilter, formatFilter, sort]);
 
   const categoryOptions = [
     { value: "all", label: "All Categories" },
@@ -119,13 +146,30 @@ function BrowseContent() {
           </div>
 
           {!loaded ? (
-            <div className="text-center py-16 text-muted">Loading...</div>
-          ) : stories.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {stories.map((story) => (
-                <StoryCard key={story.id} story={story} />
+              {Array.from({ length: 6 }).map((_, i) => (
+                <StoryCardSkeleton key={i} />
               ))}
             </div>
+          ) : stories.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {stories.map((story) => (
+                  <StoryCard key={story.id} story={story} />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-2.5 rounded-xl bg-surface border border-border text-sm font-medium hover:bg-surface-hover transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {loadingMore ? "Loading..." : "Load More"}
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-16">
               <p className="text-lg text-muted">No stories found matching your filters.</p>

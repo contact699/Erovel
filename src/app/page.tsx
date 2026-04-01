@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/constants";
 import { formatNumber } from "@/lib/utils";
 import { StoryCard } from "@/components/story/story-card";
+import { StoryCardSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { getPublishedStories, getCategories, getReadingHistory } from "@/lib/supabase/queries";
 import { useAuthStore } from "@/store/auth-store";
@@ -129,6 +130,17 @@ export default function HomePage() {
                   <p className="text-[10px] text-muted">{item.story.creator?.display_name}</p>
                 </div>
               </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Loading skeleton */}
+      {!loaded && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <StoryCardSkeleton key={i} />
             ))}
           </div>
         </section>

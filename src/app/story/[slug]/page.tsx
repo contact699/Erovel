@@ -150,6 +150,17 @@ export default function StoryPage() {
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         {/* ---- Hero section ---- */}
         <section className="space-y-6">
+          {/* Cover image banner */}
+          {story.cover_image_url && (
+            <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden">
+              <img
+                src={story.cover_image_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
           {/* Format + gated badges */}
           <div className="flex items-center gap-2">
             <Badge variant={isChat ? "accent" : "default"}>

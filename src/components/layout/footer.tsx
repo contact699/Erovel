@@ -24,6 +24,7 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-sm mb-3">Creators</h3>
             <ul className="space-y-2 text-xs text-muted">
+              <li><Link href="/creators" className="hover:text-foreground transition-colors">Why Erovel?</Link></li>
               <li><Link href="/signup" className="hover:text-foreground transition-colors">Become a Creator</Link></li>
               <li><Link href="/dashboard" className="hover:text-foreground transition-colors">Creator Dashboard</Link></li>
               <li><Link href="/dashboard/import" className="hover:text-foreground transition-colors">Import from imgchest</Link></li>
