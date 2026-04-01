@@ -30,7 +30,7 @@ export async function getPublishedStories(options?: {
 
   let query = supabase
     .from("stories")
-    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified)")
+    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified, subscription_price)")
     .eq("status", "published");
 
   if (options?.category && options.category !== "all") {
@@ -70,7 +70,7 @@ export async function getStoryBySlug(slug: string) {
   if (!supabase) return null;
   const { data } = await supabase
     .from("stories")
-    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, bio, is_verified, follower_count, story_count, created_at)")
+    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, bio, is_verified, follower_count, story_count, subscription_price, created_at)")
     .eq("slug", slug)
     .single();
   return data;

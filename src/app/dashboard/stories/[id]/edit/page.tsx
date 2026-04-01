@@ -17,7 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { cn, generateId } from "@/lib/utils";
 import { CATEGORIES, RELEASE_CADENCES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,14 @@ import { Badge } from "@/components/ui/badge";
 import { MediaUpload } from "@/components/editor/media-upload";
 import { ProseEditor } from "@/components/editor/prose-editor";
 import { ChatEditor } from "@/components/editor/chat-editor";
+import { useAuthStore } from "@/store/auth-store";
 import {
   getChapters,
   getChapterWithContent,
+  updateStory,
+  updateChapter as updateChapterDb,
+  saveChapterContent,
+  createChapter,
 } from "@/lib/supabase/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
@@ -41,6 +46,7 @@ interface ChapterDraft {
   title: string;
   chapterNumber: number;
   status: string;
+  isNew?: boolean; // true for chapters added locally that don't exist in DB yet
   proseContent?: JSONContent;
   chatContent?: ChatContent;
 }
@@ -48,9 +54,15 @@ interface ChapterDraft {
 export default function EditStoryPage() {
   const params = useParams();
   const storyId = params.id as string;
+  const router = useRouter();
+  useAuthStore(); // ensure auth state is hydrated
 
   const [loading, setLoading] = useState(true);
   const [storyData, setStoryData] = useState<Story | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Step management
   const [step, setStep] = useState<1 | 2>(2);
@@ -64,6 +76,7 @@ export default function EditStoryPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
+  const [storyPrice, setStoryPrice] = useState(0);
   const [, setCoverImageUrl] = useState<string | null>(null);
 
   // Chapters
@@ -103,6 +116,7 @@ export default function EditStoryPage() {
         setCategoryId(story.category_id);
         setFormat(story.format as StoryFormat);
         setIsGated(story.is_gated);
+        setStoryPrice(story.price || 0);
         setCoverImageUrl(story.cover_image_url);
 
         // Fetch tags for this story
@@ -183,6 +197,7 @@ export default function EditStoryPage() {
       title: `Chapter ${chapters.length + 1}`,
       chapterNumber: chapters.length + 1,
       status: "draft",
+      isNew: true,
     };
     setChapters([...chapters, newChapter]);
     setActiveChapterId(newChapter.id);
@@ -240,6 +255,183 @@ export default function EditStoryPage() {
     },
     [activeChapterId]
   );
+
+  // ---- Schedule helpers ----
+
+  const computeScheduleDates = (): Map<string, string> => {
+    const dates = new Map<string, string>();
+    if (!startDate || !releaseCadence) return dates;
+
+    const cadenceDays = parseInt(releaseCadence, 10);
+    if (isNaN(cadenceDays) || cadenceDays <= 0) return dates;
+
+    const baseDate = new Date(startDate + "T00:00:00");
+    if (isNaN(baseDate.getTime())) return dates;
+
+    for (const ch of chapters) {
+      const offset = (ch.chapterNumber - 1) * cadenceDays;
+      const publishDate = new Date(baseDate);
+      publishDate.setDate(publishDate.getDate() + offset);
+      dates.set(ch.id, publishDate.toISOString());
+    }
+    return dates;
+  };
+
+  // ---- Save / Publish handlers ----
+
+  const handleSave = async () => {
+    if (!storyId) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      // Update story metadata
+      await updateStory(storyId, {
+        title: title.trim(),
+        description: description.trim(),
+        category_id: categoryId || null,
+        format,
+        is_gated: isGated,
+        price: isGated ? storyPrice : 0,
+        status: storyData?.status || "draft",
+      });
+
+      const scheduleDates = computeScheduleDates();
+
+      // Update each chapter
+      for (const ch of chapters) {
+        // If this is a newly added chapter without a real DB id, create it
+        let chDbId = ch.id;
+
+        if (ch.isNew) {
+          try {
+            const created = await createChapter({
+              story_id: storyId,
+              chapter_number: ch.chapterNumber,
+              title: ch.title,
+              status: "draft",
+            });
+            if (created) {
+              chDbId = created.id;
+              // Update the local chapter with the real DB id and clear isNew
+              setChapters((prev) =>
+                prev.map((c) => (c.id === ch.id ? { ...c, id: created.id, isNew: false } : c))
+              );
+            }
+          } catch {
+            // Skip chapter if creation fails
+            continue;
+          }
+        }
+
+        // Update chapter metadata with schedule info
+        const publishAt = scheduleDates.get(ch.id);
+        const chapterUpdates: Record<string, unknown> = {
+          title: ch.title,
+          chapter_number: ch.chapterNumber,
+        };
+        if (publishAt) {
+          const now = new Date();
+          if (new Date(publishAt) > now) {
+            chapterUpdates.status = "scheduled";
+            chapterUpdates.publish_at = publishAt;
+          }
+        }
+
+        await updateChapterDb(chDbId, chapterUpdates);
+
+        // Save content
+        const content = format === "prose" ? ch.proseContent : ch.chatContent;
+        if (content) {
+          await saveChapterContent(chDbId, content);
+        }
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save changes";
+      setSaveError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!storyId) return;
+    setPublishing(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const scheduleDates = computeScheduleDates();
+      const now = new Date();
+
+      // Save and schedule/publish each chapter
+      for (const ch of chapters) {
+        let chDbId = ch.id;
+
+        if (ch.isNew) {
+          try {
+            const created = await createChapter({
+              story_id: storyId,
+              chapter_number: ch.chapterNumber,
+              title: ch.title,
+              status: "draft",
+            });
+            if (created) {
+              chDbId = created.id;
+              setChapters((prev) =>
+                prev.map((c) => (c.id === ch.id ? { ...c, id: created.id, isNew: false } : c))
+              );
+            }
+          } catch {
+            continue;
+          }
+        }
+
+        // Save content first
+        const content = format === "prose" ? ch.proseContent : ch.chatContent;
+        if (content) {
+          await saveChapterContent(chDbId, content);
+        }
+
+        // Update chapter with publish/schedule status
+        const publishAt = scheduleDates.get(ch.id);
+        if (publishAt && new Date(publishAt) > now) {
+          await updateChapterDb(chDbId, {
+            title: ch.title,
+            chapter_number: ch.chapterNumber,
+            status: "scheduled",
+            publish_at: publishAt,
+          });
+        } else {
+          await updateChapterDb(chDbId, {
+            title: ch.title,
+            chapter_number: ch.chapterNumber,
+            status: "published",
+          });
+        }
+      }
+
+      // Update story to published
+      await updateStory(storyId, {
+        title: title.trim(),
+        description: description.trim(),
+        category_id: categoryId || null,
+        format,
+        is_gated: isGated,
+        price: isGated ? storyPrice : 0,
+        status: "published",
+      });
+
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to publish";
+      setSaveError(message);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   // ---- Options ----
 
@@ -310,17 +502,36 @@ export default function EditStoryPage() {
                 {showPreview ? "Edit" : "Preview"}
               </Button>
             )}
-            <Button variant="secondary" size="sm">
-              <Save className="h-4 w-4" />
-              Save Changes
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || publishing}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Changes"}
             </Button>
-            <Button size="sm">
-              <Send className="h-4 w-4" />
-              Update
+            <Button
+              size="sm"
+              onClick={handlePublish}
+              disabled={saving || publishing}
+            >
+              {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {publishing ? "Publishing..." : "Publish"}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Save feedback */}
+      {saveError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger flex items-center justify-between">
+            <span>{saveError}</span>
+            <button onClick={() => setSaveError(null)} className="text-danger hover:text-danger/80 cursor-pointer">&times;</button>
+          </div>
+        </div>
+      )}
 
       {/* Step indicator */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -484,28 +695,45 @@ export default function EditStoryPage() {
             </div>
 
             {/* Gated toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="text-sm font-medium">Gated Content</p>
-                <p className="text-xs text-muted">
-                  Require a subscription to read this story
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsGated(!isGated)}
-                className={cn(
-                  "relative h-6 w-11 rounded-full transition-colors cursor-pointer",
-                  isGated ? "bg-accent" : "bg-border"
-                )}
-              >
-                <span
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Gated Content</p>
+                  <p className="text-xs text-muted">
+                    Require a subscription to read this story
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGated(!isGated)}
                   className={cn(
-                    "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-                    isGated && "translate-x-5"
+                    "relative h-6 w-11 rounded-full transition-colors cursor-pointer",
+                    isGated ? "bg-accent" : "bg-border"
                   )}
-                />
-              </button>
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                      isGated && "translate-x-5"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {isGated && (
+                <div>
+                  <Input
+                    id="story-price"
+                    label="Unlock Price ($)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={String(storyPrice)}
+                    onChange={(e) => setStoryPrice(parseFloat(e.target.value) || 0)}
+                  />
+                  <p className="text-xs text-muted mt-1">Readers pay this to unlock all chapters. Set to 0 for free.</p>
+                </div>
+              )}
             </div>
 
             {/* Cover image */}
@@ -631,6 +859,22 @@ export default function EditStoryPage() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                   />
+                  {startDate && releaseCadence && (
+                    <div className="space-y-1 pt-1">
+                      <p className="text-xs font-medium text-muted">Preview</p>
+                      {chapters.map((ch) => {
+                        const cadenceDays = parseInt(releaseCadence, 10);
+                        const offset = (ch.chapterNumber - 1) * cadenceDays;
+                        const d = new Date(startDate + "T00:00:00");
+                        d.setDate(d.getDate() + offset);
+                        return (
+                          <p key={ch.id} className="text-xs text-muted truncate">
+                            Ch {ch.chapterNumber}: {d.toLocaleDateString()}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
