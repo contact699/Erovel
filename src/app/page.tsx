@@ -6,17 +6,41 @@ import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/lib/constants";
 import { formatNumber } from "@/lib/utils";
 import { StoryCard } from "@/components/story/story-card";
 import { Button } from "@/components/ui/button";
-import { getPublishedStories, getCategories } from "@/lib/supabase/queries";
-import type { Story, Category } from "@/lib/types";
+import { getPublishedStories, getCategories, getReadingHistory } from "@/lib/supabase/queries";
+import { useAuthStore } from "@/store/auth-store";
+import type { Story, Category, Chapter } from "@/lib/types";
 import {
   Flame, Clock, Grid3X3, PenTool, ArrowRight, BookOpen, MessageSquare, DollarSign, Users,
 } from "lucide-react";
+
+interface ReadingHistoryItem {
+  id: string;
+  story: Story;
+  chapter: Pick<Chapter, "id" | "title" | "chapter_number"> | null;
+}
 
 export default function HomePage() {
   const [trendingStories, setTrendingStories] = useState<Story[]>([]);
   const [latestStories, setLatestStories] = useState<Story[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  const user = useAuthStore((s) => s.user);
+  const [continueReading, setContinueReading] = useState<ReadingHistoryItem[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      getReadingHistory(user.id).then((data) => {
+        const seen = new Set<string>();
+        const unique = (data as ReadingHistoryItem[]).filter((item) => {
+          if (!item.story || seen.has(item.story.id)) return false;
+          seen.add(item.story.id);
+          return true;
+        });
+        setContinueReading(unique.slice(0, 3));
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     async function load() {
@@ -79,6 +103,36 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Continue Reading Section */}
+      {continueReading.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center gap-3 mb-4">
+            <BookOpen size={20} className="text-accent" />
+            <h2 className="text-xl font-bold">Continue Reading</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {continueReading.map((item) => (
+              <Link
+                key={item.id}
+                href={`/story/${item.story.slug}/${item.chapter?.chapter_number || 1}`}
+                className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:border-accent/30 transition-all"
+              >
+                <div className="w-10 h-14 rounded bg-accent/10 flex items-center justify-center shrink-0">
+                  <BookOpen size={16} className="text-accent/60" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{item.story.title}</p>
+                  {item.chapter && (
+                    <p className="text-xs text-muted">Ch. {item.chapter.chapter_number}: {item.chapter.title}</p>
+                  )}
+                  <p className="text-[10px] text-muted">{item.story.creator?.display_name}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Trending Section */}
       {loaded && trendingStories.length > 0 && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { getMyStories } from "@/lib/supabase/queries";
 import type { Story } from "@/lib/types";
@@ -10,9 +11,19 @@ import { formatNumber } from "@/lib/utils";
 import { PenTool, BookOpen, Eye, DollarSign, Plus } from "lucide-react";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (user && user.role === "creator" && !user.bio && typeof window !== "undefined") {
+      const done = localStorage.getItem("onboarding-complete");
+      if (!done) {
+        router.push("/dashboard/onboarding");
+      }
+    }
+  }, [user, router]);
 
   useEffect(() => {
     if (!user) return;

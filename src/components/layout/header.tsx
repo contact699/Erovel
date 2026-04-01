@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { Search, Moon, Sun, Menu, X, BookOpen, PenTool } from "lucide-react";
 import { useState } from "react";
 import { PLATFORM_NAME } from "@/lib/constants";
@@ -71,6 +72,8 @@ export function Header() {
               <Search size={18} />
             </button>
           )}
+
+          {isAuthenticated && <NotificationBell />}
 
           <button onClick={toggleTheme} className="text-muted hover:text-foreground p-2 cursor-pointer">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}

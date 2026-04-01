@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth-store";
-import { followCreator, unfollowCreator, isFollowing } from "@/lib/supabase/queries";
+import { followCreator, unfollowCreator, isFollowing, createNotification } from "@/lib/supabase/queries";
 import { UserPlus, UserCheck } from "lucide-react";
 
 interface FollowButtonProps {
@@ -36,6 +36,14 @@ export function FollowButton({ creatorId, onFollowChange }: FollowButtonProps) {
         await followCreator(user.id, creatorId);
         setFollowing(true);
         onFollowChange?.(true);
+        // Notify creator of new follower
+        createNotification({
+          user_id: creatorId,
+          type: "new_follower",
+          title: "New follower",
+          body: `${user.display_name} started following you`,
+          link: `/creator/${user.username}`,
+        }).catch(() => {});
       }
     } catch {
       // silently fail

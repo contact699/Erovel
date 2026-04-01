@@ -12,6 +12,7 @@ import { ProseReader } from "@/components/story/prose-reader";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import { useAuthStore } from "@/store/auth-store";
 import { ReportButton } from "@/components/ui/report-button";
+import { ShareButton } from "@/components/ui/share-button";
 import {
   getStoryBySlug,
   getChapterWithContent,
@@ -370,6 +371,7 @@ export default function ChapterPage() {
                 <Bookmark size={20} />
               )}
             </button>
+            <ShareButton title={`${story.title} - Ch. ${chapter.chapter_number}`} />
             <TipButton
               creatorName={story.creator?.display_name || ""}
               storyTitle={story.title}

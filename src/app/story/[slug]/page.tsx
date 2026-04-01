@@ -24,9 +24,11 @@ import {
   getChapters,
   getComments,
   addComment,
+  createNotification,
 } from "@/lib/supabase/queries";
 import type { Story, Chapter, Comment } from "@/lib/types";
 import { ReportButton } from "@/components/ui/report-button";
+import { ShareButton } from "@/components/ui/share-button";
 import {
   Eye,
   MessageCircle,
@@ -38,7 +40,6 @@ import {
   Lock,
   Calendar,
   MessageSquare,
-  Share2,
   BookMarked,
   ArrowLeft,
   Loader2,
@@ -305,12 +306,7 @@ export default function StoryPage() {
               >
                 <RedditIcon className="w-4 h-4" />
               </button>
-              <button
-                className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
-                title="Copy link"
-              >
-                <Share2 size={16} />
-              </button>
+              <ShareButton title={story.title} />
               <button
                 className="p-2 text-muted hover:text-foreground transition-colors cursor-pointer rounded-lg hover:bg-surface-hover"
                 title="Bookmark"
@@ -444,6 +440,16 @@ export default function StoryPage() {
                       if (newComment) {
                         setComments((prev) => [newComment as Comment, ...prev]);
                         setCommentBody("");
+                        // Notify story creator of new comment
+                        if (story.creator_id !== user.id) {
+                          createNotification({
+                            user_id: story.creator_id,
+                            type: "new_comment",
+                            title: "New comment",
+                            body: `${user.display_name} commented on "${story.title}"`,
+                            link: `/story/${story.slug}`,
+                          }).catch(() => {});
+                        }
                       }
                     } catch {
                       // Silently handle errors

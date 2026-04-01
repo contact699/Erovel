@@ -26,7 +26,7 @@ export default function SignupPage() {
     await signup(email, password, username, displayName, role);
     const state = useAuthStore.getState();
     if (state.isAuthenticated) {
-      router.push("/");
+      router.push(role === "creator" ? "/dashboard/onboarding" : "/");
     }
   }
 
