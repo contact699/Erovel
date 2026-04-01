@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Story Not Found | Erovel" };
   }
 
-  const creatorName = (story.creator as any)?.display_name || "Unknown";
+  const creatorName = (story.creator as { display_name?: string } | null)?.display_name || "Unknown";
 
   return {
     title: `${story.title} by ${creatorName} | Erovel`,

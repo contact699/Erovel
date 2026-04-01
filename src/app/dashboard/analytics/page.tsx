@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { getCreatorAnalytics } from "@/lib/supabase/queries";
+import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatCurrency } from "@/lib/utils";
@@ -23,7 +24,7 @@ interface DailyView {
 
 export default function AnalyticsPage() {
   const { user, isAuthenticated } = useAuthStore();
-  const [stories, setStories] = useState<any[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
   const [loaded, setLoaded] = useState(false);
 
