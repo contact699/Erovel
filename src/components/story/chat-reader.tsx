@@ -18,6 +18,11 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
   const { characters, messages } = content;
   const sorted = [...messages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const charMap = new Map<string, ChatCharacter>();
+
+  // Collect all media URLs for gallery navigation
+  const allMediaUrls = sorted
+    .filter((msg) => msg.media_url && (msg.media_type === "image" || msg.media_type === "gif"))
+    .map((msg) => msg.media_url!);
   characters.forEach((c) => charMap.set(c.id, c));
 
   const visibleMessages = teaserLimit ? sorted.slice(0, teaserLimit) : sorted;
@@ -209,12 +214,14 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
         )}
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox with gallery navigation */}
       {lightboxSrc && (
         <Lightbox
           src={lightboxSrc}
           alt="Full size media"
+          gallery={allMediaUrls}
           onClose={() => setLightboxSrc(null)}
+          onNavigate={(newSrc) => setLightboxSrc(newSrc)}
         />
       )}
     </>

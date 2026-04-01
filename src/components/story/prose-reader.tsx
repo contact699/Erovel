@@ -23,6 +23,11 @@ export function ProseReader({ content, teaserLimit }: ProseReaderProps) {
   const visible = teaserLimit ? nodes.slice(0, teaserLimit) : nodes;
   const hasMore = teaserLimit ? nodes.length > teaserLimit : false;
 
+  // Collect all image URLs for gallery navigation
+  const allImageUrls = nodes
+    .filter((n) => n.type === "image" && n.attrs?.src)
+    .map((n) => n.attrs!.src);
+
   if (nodes.length === 0) {
     return (
       <div className="py-16 text-center text-muted">
@@ -120,7 +125,9 @@ export function ProseReader({ content, teaserLimit }: ProseReaderProps) {
         <Lightbox
           src={lightboxSrc}
           alt="Full size image"
+          gallery={allImageUrls}
           onClose={() => setLightboxSrc(null)}
+          onNavigate={(newSrc) => setLightboxSrc(newSrc)}
         />
       )}
     </>
