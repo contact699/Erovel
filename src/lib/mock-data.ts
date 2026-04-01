@@ -30,6 +30,10 @@ export const mockCreator: Profile = {
   follower_count: 1243,
   story_count: 12,
   subscription_price: 9.99,
+  notify_new_follower: true,
+  notify_tips: true,
+  notify_comments: true,
+  notify_new_chapters: true,
   created_at: "2025-06-15T00:00:00Z",
 };
 
@@ -44,6 +48,10 @@ export const mockCreator2: Profile = {
   follower_count: 856,
   story_count: 8,
   subscription_price: 14.99,
+  notify_new_follower: true,
+  notify_tips: true,
+  notify_comments: true,
+  notify_new_chapters: true,
   created_at: "2025-08-01T00:00:00Z",
 };
 
@@ -58,6 +66,10 @@ export const mockCreator3: Profile = {
   follower_count: 2104,
   story_count: 5,
   subscription_price: 12.99,
+  notify_new_follower: true,
+  notify_tips: true,
+  notify_comments: true,
+  notify_new_chapters: true,
   created_at: "2025-05-20T00:00:00Z",
 };
 
@@ -72,6 +84,10 @@ export const mockReader: Profile = {
   follower_count: 0,
   story_count: 0,
   subscription_price: 9.99,
+  notify_new_follower: true,
+  notify_tips: true,
+  notify_comments: true,
+  notify_new_chapters: true,
   created_at: "2025-09-01T00:00:00Z",
 };
 

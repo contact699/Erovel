@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/store/auth-store";
@@ -30,8 +30,21 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuthStore();
+
+  useEffect(() => {
+    if (
+      user &&
+      user.role === "creator" &&
+      typeof window !== "undefined" &&
+      !localStorage.getItem("onboarding-complete") &&
+      pathname !== "/dashboard/onboarding"
+    ) {
+      router.push("/dashboard/onboarding");
+    }
+  }, [user, pathname, router]);
 
   if (!isAuthenticated || user?.role !== "creator") {
     return (

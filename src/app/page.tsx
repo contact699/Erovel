@@ -40,6 +40,8 @@ export default function HomePage() {
         });
         setContinueReading(unique.slice(0, 3));
       });
+    } else {
+      setContinueReading([]);
     }
   }, [user]);
 

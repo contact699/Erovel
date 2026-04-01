@@ -22,6 +22,10 @@ export interface Profile {
   follower_count: number;
   story_count: number;
   subscription_price: number;
+  notify_new_follower: boolean;
+  notify_tips: boolean;
+  notify_comments: boolean;
+  notify_new_chapters: boolean;
   created_at: string;
 }
 

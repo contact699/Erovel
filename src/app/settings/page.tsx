@@ -51,10 +51,10 @@ export default function SettingsPage() {
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
-    newFollowers: true,
-    tips: true,
-    comments: true,
-    chapterReleases: false,
+    newFollowers: user?.notify_new_follower ?? true,
+    tips: user?.notify_tips ?? true,
+    comments: user?.notify_comments ?? true,
+    chapterReleases: user?.notify_new_chapters ?? true,
   });
 
   // Content preferences
@@ -387,7 +387,21 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <Button
             size="sm"
-            onClick={() => handleSave("notifications")}
+            onClick={async () => {
+              setSavingSection("notifications");
+              try {
+                await updateProfile(currentUser.id, {
+                  notify_new_follower: notifications.newFollowers,
+                  notify_tips: notifications.tips,
+                  notify_comments: notifications.comments,
+                  notify_new_chapters: notifications.chapterReleases,
+                });
+              } catch {
+                // handle silently
+              } finally {
+                setSavingSection(null);
+              }
+            }}
             loading={savingSection === "notifications"}
           >
             <Save size={14} />
