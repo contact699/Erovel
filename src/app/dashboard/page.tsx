@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { getMyStories } from "@/lib/supabase/queries";
+import { toast } from "@/components/ui/toast";
 import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [retryCount, setRetryCount] = useState(0);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
 
   useEffect(() => {
     if (!user) return;
@@ -26,6 +28,29 @@ export default function DashboardPage() {
       .catch(() => { if (!cancelled) { setError("Failed to load stories"); setLoaded(true); } });
     return () => { cancelled = true; };
   }, [user, retryCount]);
+
+  // Auto-check verification status if not verified
+  useEffect(() => {
+    if (!user || user.is_verified) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/veriff/check", { method: "POST" });
+        const data = await res.json();
+        if (!cancelled && data.verified) {
+          await refreshProfile();
+          toast("success", "Identity verified!");
+        }
+      } catch {
+        // silently fail
+      }
+    };
+    // Check once on load, then every 10 seconds for 2 minutes
+    check();
+    const interval = setInterval(check, 10000);
+    const timeout = setTimeout(() => clearInterval(interval), 120000);
+    return () => { cancelled = true; clearInterval(interval); clearTimeout(timeout); };
+  }, [user, refreshProfile]);
 
   if (!isAuthenticated || !user) {
     return (
