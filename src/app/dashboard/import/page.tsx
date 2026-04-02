@@ -806,7 +806,7 @@ export default function ImportPage() {
                     size="sm"
                     onClick={() => handlePublish(false)}
                     loading={publishing}
-                    disabled={!user}
+                    disabled={!user || !user.is_verified}
                   >
                     <Upload size={14} />
                     Publish All
@@ -821,6 +821,9 @@ export default function ImportPage() {
                     <FileText size={14} />
                     Save as Draft
                   </Button>
+                  {user && !user.is_verified && (
+                    <p className="text-xs text-danger">You must verify your identity before publishing.</p>
+                  )}
                 </div>
               </>
             )}

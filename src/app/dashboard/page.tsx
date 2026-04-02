@@ -7,7 +7,8 @@ import { getMyStories } from "@/lib/supabase/queries";
 import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
-import { PenTool, BookOpen, Eye, DollarSign, Plus } from "lucide-react";
+import { PenTool, BookOpen, Eye, DollarSign, Plus, ShieldCheck } from "lucide-react";
+import { VerifyButton } from "@/components/monetization/verify-button";
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuthStore();
@@ -62,6 +63,17 @@ export default function DashboardPage() {
           <Button><Plus size={16} /> New Story</Button>
         </Link>
       </div>
+
+      {user.role === "creator" && !user.is_verified && (
+        <div className="flex items-center gap-4 p-4 bg-accent/5 border border-accent/20 rounded-xl">
+          <ShieldCheck size={24} className="text-accent shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-sm">Verify your identity to publish</p>
+            <p className="text-xs text-muted">Required for 2257 compliance before your first publication.</p>
+          </div>
+          <VerifyButton />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

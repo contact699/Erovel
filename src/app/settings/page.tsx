@@ -24,6 +24,7 @@ import {
   Save,
   AlertTriangle,
 } from "lucide-react";
+import { VerifyButton } from "@/components/monetization/verify-button";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -133,6 +134,16 @@ export default function SettingsPage() {
             <p className="text-xs text-muted mt-1">JPG, PNG. Max 2MB.</p>
           </div>
         </div>
+
+        {currentUser.role === "creator" && (
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="text-sm font-medium">Identity Verification</p>
+              <p className="text-xs text-muted">Required for publishing content</p>
+            </div>
+            <VerifyButton />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input

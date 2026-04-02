@@ -403,12 +403,15 @@ export default function NewStoryPage() {
             <Button
               size="sm"
               onClick={() => handlePublish(false)}
-              disabled={publishing || !storyId}
+              disabled={publishing || !storyId || !user?.is_verified}
             >
               {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {publishing ? "Publishing..." : "Publish"}
             </Button>
           </div>
+          {user && !user.is_verified && (
+            <p className="text-xs text-danger">You must verify your identity before publishing.</p>
+          )}
         </div>
       </div>
 
