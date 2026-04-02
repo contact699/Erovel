@@ -185,12 +185,12 @@ export default function StoryPage() {
               {isChat ? (
                 <>
                   <MessageSquare size={12} className="mr-1 inline" />
-                  Chat Format
+                  Sext Story
                 </>
               ) : (
                 <>
                   <BookOpen size={12} className="mr-1 inline" />
-                  Prose
+                  Illustrated Story
                 </>
               )}
             </Badge>

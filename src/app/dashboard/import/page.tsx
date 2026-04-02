@@ -66,7 +66,7 @@ export default function ImportPage() {
   const [storyTitle, setStoryTitle] = useState("");
   const [storyDescription, setStoryDescription] = useState("");
   const [category, setCategory] = useState("other");
-  const [format, setFormat] = useState<StoryFormat>("prose");
+  const [format, setFormat] = useState<StoryFormat>("chat");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
 
@@ -436,8 +436,8 @@ export default function ImportPage() {
                 label="Format"
                 id="import-format"
                 options={[
-                  { value: "chat", label: "Chat bubbles" },
-                  { value: "prose", label: "Prose with images" },
+                  { value: "chat", label: "Sext Story \u2014 Texting style with images" },
+                  { value: "prose", label: "Illustrated Story \u2014 Story with images and GIFs" },
                 ]}
                 value={format}
                 onChange={(e) => setFormat(e.target.value as StoryFormat)}
@@ -732,7 +732,7 @@ export default function ImportPage() {
                   {storyTitle || "Untitled Story"} &middot;{" "}
                   {chapters.filter((ch) => !ch.error && ch.images.some((img) => img.selected)).length}{" "}
                   chapters &middot; {totalSelectedImages()} images &middot;{" "}
-                  {format === "prose" ? "Prose" : "Chat"}
+                  {format === "prose" ? "Illustrated Story" : "Sext Story"}
                 </p>
               </div>
             </div>

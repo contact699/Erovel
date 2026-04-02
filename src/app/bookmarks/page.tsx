@@ -100,7 +100,7 @@ export default function BookmarksPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                     <Badge variant="outline">{story.published_chapter_count} chapters</Badge>
-                    {story.format === "chat" && <Badge variant="accent">Chat</Badge>}
+                    {story.format === "chat" && <Badge variant="accent">Sext</Badge>}
                     <span>Bookmarked {formatDate(bookmark.created_at)}</span>
                   </div>
                   <div className="pt-1">

@@ -96,8 +96,8 @@ function BrowseContent() {
 
   const formatOptions = [
     { value: "all", label: "All Formats" },
-    { value: "prose", label: "Prose" },
-    { value: "chat", label: "Chat" },
+    { value: "prose", label: "Illustrated Story" },
+    { value: "chat", label: "Sext Story" },
   ];
 
   const sortOptions = [

@@ -227,7 +227,7 @@ export default function ChapterPage() {
         </h1>
         <div className="flex items-center justify-center gap-2 mt-3">
           <Badge variant={isChat ? "accent" : "default"}>
-            {isChat ? "Chat Format" : "Prose"}
+            {isChat ? "Sext Story" : "Illustrated Story"}
           </Badge>
           {isGatedChapter && (
             <Badge variant="accent">

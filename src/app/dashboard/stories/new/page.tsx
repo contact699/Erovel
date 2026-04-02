@@ -503,9 +503,9 @@ export default function NewStoryPage() {
                     )}
                   />
                   <div className="text-left">
-                    <p className="text-sm font-medium">Prose</p>
+                    <p className="text-sm font-medium">Illustrated Story</p>
                     <p className="text-xs text-muted">
-                      Traditional narrative with rich text formatting
+                      Story with images and GIFs
                     </p>
                   </div>
                 </button>
@@ -526,9 +526,9 @@ export default function NewStoryPage() {
                     )}
                   />
                   <div className="text-left">
-                    <p className="text-sm font-medium">Chat</p>
+                    <p className="text-sm font-medium">Sext Story</p>
                     <p className="text-xs text-muted">
-                      Message bubbles between characters
+                      Texting/messaging style with images
                     </p>
                   </div>
                 </button>

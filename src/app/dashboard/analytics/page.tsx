@@ -176,7 +176,7 @@ export default function AnalyticsPage() {
                         <td className="px-3 py-3 text-right text-muted">{formatCurrency(Number(story.tip_total))}</td>
                         <td className="px-3 py-3 text-right text-muted">{story.comment_count}</td>
                         <td className="px-3 py-3">
-                          <Badge variant={story.format === "chat" ? "accent" : "default"}>{story.format}</Badge>
+                          <Badge variant={story.format === "chat" ? "accent" : "default"}>{story.format === "chat" ? "Sext" : "Illustrated"}</Badge>
                         </td>
                         <td className="px-3 py-3">
                           <Badge variant={story.status === "published" ? "success" : "default"}>{story.status}</Badge>
