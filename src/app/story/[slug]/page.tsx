@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
@@ -71,6 +71,7 @@ export default function StoryPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
 
@@ -81,33 +82,46 @@ export default function StoryPage() {
     ? isContentUnlocked(story.id, story.creator_id)
     : false;
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const storyData = await getStoryBySlug(slug);
-        if (storyData) {
-          setStory(storyData as Story);
-          const [chaptersData, commentsData] = await Promise.all([
-            getChapters(storyData.id),
-            getComments(storyData.id),
-          ]);
-          setChapters(chaptersData as Chapter[]);
-          setComments(commentsData as Comment[]);
-        }
-      } catch {
-        // Silently handle errors
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const storyData = await getStoryBySlug(slug);
+      if (storyData) {
+        setStory(storyData as Story);
+        const [chaptersData, commentsData] = await Promise.all([
+          getChapters(storyData.id),
+          getComments(storyData.id),
+        ]);
+        setChapters(chaptersData as Chapter[]);
+        setComments(commentsData as Comment[]);
       }
+    } catch {
+      setError("Failed to load story");
+    } finally {
+      setLoading(false);
     }
-    fetchData();
   }, [slug]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-danger mb-4">{error}</p>
+        <button onClick={() => { setError(null); fetchData(); }} className="text-accent hover:underline text-sm cursor-pointer">
+          Try again
+        </button>
       </div>
     );
   }

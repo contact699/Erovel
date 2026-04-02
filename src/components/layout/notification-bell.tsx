@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
-import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead } from "@/lib/supabase/queries";
+import { getNotifications, getUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from "@/lib/supabase/queries";
 import { Bell, Check } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
 
@@ -86,7 +86,18 @@ export function NotificationBell() {
                   <Link
                     key={n.id}
                     href={n.link || "#"}
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      if (!n.read) {
+                        markNotificationRead(n.id);
+                        setUnreadCount((c) => Math.max(0, c - 1));
+                        setNotifications((prev) =>
+                          prev.map((notif) =>
+                            notif.id === n.id ? { ...notif, read: true } : notif
+                          )
+                        );
+                      }
+                      setOpen(false);
+                    }}
                     className={`block px-4 py-3 hover:bg-surface-hover transition-colors border-b border-border last:border-0 ${
                       !n.read ? "bg-accent/5" : ""
                     }`}

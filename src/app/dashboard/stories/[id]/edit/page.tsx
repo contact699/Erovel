@@ -60,6 +60,7 @@ export default function EditStoryPage() {
 
   const [loading, setLoading] = useState(true);
   const [storyData, setStoryData] = useState<Story | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -89,91 +90,95 @@ export default function EditStoryPage() {
   const [startDate, setStartDate] = useState("2026-04-01");
 
   // Fetch story and chapters from Supabase
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const supabase = createClient();
-        if (!supabase) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch story
-        const { data: story } = await supabase
-          .from("stories")
-          .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
-          .eq("id", storyId)
-          .single();
-
-        if (!story) {
-          setLoading(false);
-          return;
-        }
-
-        setStoryData(story as Story);
-        setTitle(story.title);
-        setDescription(story.description);
-        setCategoryId(story.category_id);
-        setFormat(story.format as StoryFormat);
-        setIsGated(story.is_gated);
-        setStoryPrice(story.price || 0);
-        setCoverImageUrl(story.cover_image_url);
-
-        // Fetch tags for this story
-        const { data: storyTags } = await supabase
-          .from("story_tags")
-          .select("tag:tags(name)")
-          .eq("story_id", storyId);
-        if (storyTags) {
-          const tagNames = storyTags
-            .map((st: Record<string, unknown>) => {
-              const tag = st.tag as { name: string } | null;
-              return tag?.name;
-            })
-            .filter(Boolean) as string[];
-          setTags(tagNames);
-        }
-
-        // Fetch chapters
-        const chaptersData = await getChapters(storyId);
-
-        // Load content for each chapter
-        const chapterDrafts: ChapterDraft[] = await Promise.all(
-          (chaptersData as Chapter[]).map(async (ch) => {
-            const withContent = await getChapterWithContent(storyId, ch.chapter_number);
-            const contentJson = (withContent as Record<string, unknown>)?.content
-              ? ((withContent as Record<string, unknown>).content as { content_json: unknown })?.content_json
-              : undefined;
-
-            const draft: ChapterDraft = {
-              id: ch.id,
-              title: ch.title,
-              chapterNumber: ch.chapter_number,
-              status: ch.status,
-            };
-
-            if (story.format === "prose" && contentJson) {
-              draft.proseContent = contentJson as JSONContent;
-            } else if (story.format === "chat" && contentJson) {
-              draft.chatContent = contentJson as ChatContent;
-            }
-
-            return draft;
-          })
-        );
-
-        setChapters(chapterDrafts);
-        if (chapterDrafts.length > 0) {
-          setActiveChapterId(chapterDrafts[0].id);
-        }
-      } catch {
-        // Silently handle errors
-      } finally {
+  async function fetchData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      if (!supabase) {
         setLoading(false);
+        return;
       }
+
+      // Fetch story
+      const { data: story } = await supabase
+        .from("stories")
+        .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+        .eq("id", storyId)
+        .single();
+
+      if (!story) {
+        setLoading(false);
+        return;
+      }
+
+      setStoryData(story as Story);
+      setTitle(story.title);
+      setDescription(story.description);
+      setCategoryId(story.category_id);
+      setFormat(story.format as StoryFormat);
+      setIsGated(story.is_gated);
+      setStoryPrice(story.price || 0);
+      setCoverImageUrl(story.cover_image_url);
+
+      // Fetch tags for this story
+      const { data: storyTags } = await supabase
+        .from("story_tags")
+        .select("tag:tags(name)")
+        .eq("story_id", storyId);
+      if (storyTags) {
+        const tagNames = storyTags
+          .map((st: Record<string, unknown>) => {
+            const tag = st.tag as { name: string } | null;
+            return tag?.name;
+          })
+          .filter(Boolean) as string[];
+        setTags(tagNames);
+      }
+
+      // Fetch chapters
+      const chaptersData = await getChapters(storyId);
+
+      // Load content for each chapter
+      const chapterDrafts: ChapterDraft[] = await Promise.all(
+        (chaptersData as Chapter[]).map(async (ch) => {
+          const withContent = await getChapterWithContent(storyId, ch.chapter_number);
+          const contentJson = (withContent as Record<string, unknown>)?.content
+            ? ((withContent as Record<string, unknown>).content as { content_json: unknown })?.content_json
+            : undefined;
+
+          const draft: ChapterDraft = {
+            id: ch.id,
+            title: ch.title,
+            chapterNumber: ch.chapter_number,
+            status: ch.status,
+          };
+
+          if (story.format === "prose" && contentJson) {
+            draft.proseContent = contentJson as JSONContent;
+          } else if (story.format === "chat" && contentJson) {
+            draft.chatContent = contentJson as ChatContent;
+          }
+
+          return draft;
+        })
+      );
+
+      setChapters(chapterDrafts);
+      if (chapterDrafts.length > 0) {
+        setActiveChapterId(chapterDrafts[0].id);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load story data";
+      setError(message);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyId]);
 
   // ---- Tag handling ----
@@ -454,6 +459,25 @@ export default function EditStoryPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-danger">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              fetchData();
+            }}
+            className="text-accent hover:underline cursor-pointer"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     );
   }

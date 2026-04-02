@@ -112,6 +112,11 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
                         src={msg.media_url}
                         alt="Shared image"
                         className="rounded-lg max-w-full"
+                        onError={(e) => {
+                          e.currentTarget.src = "";
+                          e.currentTarget.alt = "Image could not be loaded";
+                          e.currentTarget.className = "w-full h-32 rounded-lg bg-surface-hover flex items-center justify-center text-muted text-sm";
+                        }}
                       />
                     </button>
                   )}
@@ -124,6 +129,11 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
                         src={msg.media_url}
                         alt="GIF"
                         className="rounded-lg max-w-full"
+                        onError={(e) => {
+                          e.currentTarget.src = "";
+                          e.currentTarget.alt = "Image could not be loaded";
+                          e.currentTarget.className = "w-full h-32 rounded-lg bg-surface-hover flex items-center justify-center text-muted text-sm";
+                        }}
                       />
                     </button>
                   )}

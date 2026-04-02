@@ -85,6 +85,11 @@ export function ProseReader({ content, teaserLimit }: ProseReaderProps) {
                 alt={node.attrs?.alt || ""}
                 className="w-full rounded-lg"
                 loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.src = "";
+                  e.currentTarget.alt = "Image could not be loaded";
+                  e.currentTarget.className = "w-full h-32 rounded-lg bg-surface-hover flex items-center justify-center text-muted text-sm";
+                }}
               />
             </button>
             {node.attrs?.alt && (

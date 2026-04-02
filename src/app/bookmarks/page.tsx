@@ -15,14 +15,18 @@ export default function BookmarksPage() {
   const { user, isAuthenticated } = useAuthStore();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getBookmarks(user.id).then((data) => {
-      setBookmarks(data as Bookmark[]);
-      setLoaded(true);
-    });
-  }, [user]);
+    let cancelled = false;
+    getBookmarks(user.id)
+      .then((data) => { if (!cancelled) { setError(null); setBookmarks(data as Bookmark[]); setLoaded(true); } })
+      .catch(() => { if (!cancelled) { setError("Failed to load bookmarks"); setLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [user, retryCount]);
 
   if (!isAuthenticated) {
     return (
@@ -42,7 +46,14 @@ export default function BookmarksPage() {
         <h1 className="text-2xl font-bold">Your Bookmarks</h1>
       </div>
 
-      {!loaded ? (
+      {error ? (
+        <div className="text-center py-16">
+          <p className="text-danger mb-4">{error}</p>
+          <button onClick={() => setRetryCount(c => c + 1)} className="text-accent hover:underline text-sm cursor-pointer">
+            Try again
+          </button>
+        </div>
+      ) : !loaded ? (
         <div className="text-center py-16 text-muted">Loading...</div>
       ) : bookmarks.length === 0 ? (
         <div className="text-center py-16">

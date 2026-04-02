@@ -27,17 +27,27 @@ export default function AnalyticsPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [dailyViews, setDailyViews] = useState<DailyView[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getCreatorAnalytics(user.id).then((data) => {
-      if (data) {
-        setStories(data.stories);
-        setDailyViews(data.dailyViews);
-      }
-      setLoaded(true);
-    });
-  }, [user]);
+    let cancelled = false;
+    getCreatorAnalytics(user.id)
+      .then((data) => {
+        if (!cancelled) {
+          setError(null);
+          if (data) {
+            setStories(data.stories);
+            setDailyViews(data.dailyViews);
+          }
+          setLoaded(true);
+        }
+      })
+      .catch(() => { if (!cancelled) { setError("Failed to load analytics"); setLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [user, retryCount]);
 
   if (!isAuthenticated || !user) {
     return (
@@ -45,6 +55,17 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-bold mb-2">Analytics</h1>
         <p className="text-muted mb-6">Log in to view your analytics.</p>
         <Link href="/login"><Button>Log in</Button></Link>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-danger mb-4">{error}</p>
+        <button onClick={() => setRetryCount(c => c + 1)} className="text-accent hover:underline text-sm cursor-pointer">
+          Try again
+        </button>
       </div>
     );
   }

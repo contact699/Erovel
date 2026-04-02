@@ -15,14 +15,18 @@ export default function DashboardStoriesPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const [error, setError] = useState<string | null>(null);
+
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getMyStories(user.id).then((data) => {
-      setStories(data);
-      setLoaded(true);
-    });
-  }, [user]);
+    let cancelled = false;
+    getMyStories(user.id)
+      .then((data) => { if (!cancelled) { setError(null); setStories(data); setLoaded(true); } })
+      .catch(() => { if (!cancelled) { setError("Failed to load stories"); setLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [user, retryCount]);
 
   const filtered = filter === "all"
     ? stories
@@ -61,7 +65,14 @@ export default function DashboardStoriesPage() {
         ))}
       </div>
 
-      {!loaded ? (
+      {error ? (
+        <div className="text-center py-16">
+          <p className="text-danger mb-4">{error}</p>
+          <button onClick={() => setRetryCount(c => c + 1)} className="text-accent hover:underline text-sm cursor-pointer">
+            Try again
+          </button>
+        </div>
+      ) : !loaded ? (
         <div className="text-center py-16 text-muted">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">

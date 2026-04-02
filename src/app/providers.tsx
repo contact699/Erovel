@@ -12,6 +12,7 @@ import { ToastContainer } from "@/components/ui/toast";
 export function ClientProviders({ children }: { children: ReactNode }) {
   const { theme } = useThemeStore();
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
+  const hydrated = useAuthStore((s) => s.hydrated);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -26,6 +27,10 @@ export function ClientProviders({ children }: { children: ReactNode }) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
+
+  if (!hydrated) {
+    return <div className="min-h-screen" />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

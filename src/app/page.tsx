@@ -41,7 +41,7 @@ export default function HomePage() {
           return true;
         });
         setContinueReading(unique.slice(0, 3));
-      });
+      }).catch(() => {});
     }
     return () => {
       cancelled = true;
@@ -51,15 +51,20 @@ export default function HomePage() {
 
   useEffect(() => {
     async function load() {
-      const [trending, latest, cats] = await Promise.all([
-        getPublishedStories({ sort: "trending", limit: 6 }),
-        getPublishedStories({ sort: "newest", limit: 5 }),
-        getCategories(),
-      ]);
-      setTrendingStories(trending);
-      setLatestStories(latest);
-      setCategories(cats);
-      setLoaded(true);
+      try {
+        const [trending, latest, cats] = await Promise.all([
+          getPublishedStories({ sort: "trending", limit: 6 }),
+          getPublishedStories({ sort: "newest", limit: 5 }),
+          getCategories(),
+        ]);
+        setTrendingStories(trending);
+        setLatestStories(latest);
+        setCategories(cats);
+      } catch {
+        // Non-fatal: homepage still works without these sections
+      } finally {
+        setLoaded(true);
+      }
     }
     load();
   }, []);

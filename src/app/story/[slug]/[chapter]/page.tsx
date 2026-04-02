@@ -54,7 +54,8 @@ export default function ChapterPage() {
   const unlocked = story
     ? isContentUnlocked(story.id, story.creator_id)
     : false;
-  const isGatedChapter = story?.is_gated && chapterNum > 2 && !unlocked;
+  const FREE_PREVIEW_CHAPTERS = 1;
+  const isGatedChapter = story?.is_gated && chapterNum > FREE_PREVIEW_CHAPTERS && !unlocked;
 
   // Fetch story, chapters, and chapter content
   useEffect(() => {
@@ -230,9 +231,10 @@ export default function ChapterPage() {
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">
-                    This chapter is for subscribers
+                    This chapter requires a subscription
                   </h3>
                   <p className="text-muted max-w-md mx-auto">
+                    Chapter {FREE_PREVIEW_CHAPTERS === 1 ? "1 is" : `1\u2013${FREE_PREVIEW_CHAPTERS} are`} free to read.
                     Subscribe to unlock all chapters of{" "}
                     <span className="font-medium text-foreground">
                       {story.title}
@@ -426,7 +428,7 @@ export default function ChapterPage() {
                 const isCurrentChapter =
                   ch.chapter_number === chapter.chapter_number;
                 const isPublished = ch.status === "published";
-                const isLocked = story.is_gated && ch.chapter_number > 2 && !unlocked;
+                const isLocked = story.is_gated && ch.chapter_number > FREE_PREVIEW_CHAPTERS && !unlocked;
 
                 return (
                   <div key={ch.id}>

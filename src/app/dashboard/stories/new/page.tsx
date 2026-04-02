@@ -35,6 +35,7 @@ import {
   saveChapterContent,
   updateStory,
   updateChapter,
+  deleteStory,
   generateSlug,
 } from "@/lib/supabase/queries";
 import type { StoryFormat, ChatContent } from "@/lib/types";
@@ -203,7 +204,6 @@ export default function NewStoryPage() {
         cover_image_url: coverImageUrl || undefined,
       });
       if (!story) throw new Error("Failed to create story");
-      setStoryId(story.id);
 
       // Create the first chapter in DB
       const ch = await createChapter({
@@ -212,11 +212,16 @@ export default function NewStoryPage() {
         title: chapters[0].title,
         status: "draft",
       });
-      if (ch) {
-        setChapters((prev) =>
-          prev.map((c, i) => (i === 0 ? { ...c, dbId: ch.id } : c))
-        );
+      if (!ch) {
+        // Rollback: delete the orphaned story
+        await deleteStory(story.id);
+        throw new Error("Failed to create chapter");
       }
+
+      setStoryId(story.id);
+      setChapters((prev) =>
+        prev.map((c, i) => (i === 0 ? { ...c, dbId: ch.id } : c))
+      );
 
       setStep(2);
     } catch (err: unknown) {
@@ -293,37 +298,48 @@ export default function NewStoryPage() {
     return dates;
   };
 
-  const handlePublish = async () => {
+  const handlePublish = async (asDraft = false) => {
     if (!storyId) return;
     setPublishing(true);
     try {
       // Save all chapter content first
       await handleSaveDraft();
 
-      const scheduleDates = computeScheduleDates();
-      const now = new Date();
-
-      // Set chapters to published or scheduled based on schedule dates
-      for (const ch of chapters) {
-        if (ch.dbId) {
-          const publishAt = scheduleDates.get(ch.id);
-          if (publishAt && new Date(publishAt) > now) {
-            // Future date — schedule the chapter
-            await updateChapter(ch.dbId, {
-              status: "scheduled",
-              publish_at: publishAt,
-            });
-          } else {
-            // No schedule or date is in the past — publish immediately
-            await updateChapter(ch.dbId, { status: "published" });
+      if (asDraft) {
+        // Save as Draft: all chapters stay as "draft", story stays as "draft"
+        for (const ch of chapters) {
+          if (ch.dbId) {
+            await updateChapter(ch.dbId, { status: "draft" });
           }
         }
+        await updateStory(storyId, { status: "draft" });
+        toast("success", "Draft saved!");
+      } else {
+        // Publish: set chapters to published or scheduled based on schedule dates
+        const scheduleDates = computeScheduleDates();
+        const now = new Date();
+
+        for (const ch of chapters) {
+          if (ch.dbId) {
+            const publishAt = scheduleDates.get(ch.id);
+            if (publishAt && new Date(publishAt) > now) {
+              // Future date — schedule the chapter
+              await updateChapter(ch.dbId, {
+                status: "scheduled",
+                publish_at: publishAt,
+              });
+            } else {
+              // No schedule or date is in the past — publish immediately
+              await updateChapter(ch.dbId, { status: "published" });
+            }
+          }
+        }
+
+        // Set story to published
+        await updateStory(storyId, { status: "published" });
+        toast("success", "Story published!");
       }
 
-      // Set story to published
-      await updateStory(storyId, { status: "published" });
-
-      toast("success", "Story published!");
       router.push("/dashboard");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to publish";
@@ -386,7 +402,7 @@ export default function NewStoryPage() {
             </Button>
             <Button
               size="sm"
-              onClick={handlePublish}
+              onClick={() => handlePublish(false)}
               disabled={publishing || !storyId}
             >
               {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

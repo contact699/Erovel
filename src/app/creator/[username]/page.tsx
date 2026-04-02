@@ -21,22 +21,47 @@ export default function CreatorProfilePage() {
   const [creator, setCreator] = useState<Profile | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    async function load() {
-      const profile = await getProfileByUsername(username);
-      if (profile) {
-        setCreator(profile);
-        const creatorStories = await getStoriesByCreator(profile.id);
-        setStories(creatorStories.filter((s: Story) => s.status === "published"));
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await getProfileByUsername(username);
+        if (cancelled) return;
+        if (profile) {
+          setCreator(profile);
+          const creatorStories = await getStoriesByCreator(profile.id);
+          if (cancelled) return;
+          setStories(creatorStories.filter((s: Story) => s.status === "published"));
+        }
+        setError(null);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) {
+          setError("Failed to load creator profile");
+          setLoaded(true);
+        }
       }
-      setLoaded(true);
-    }
-    load();
-  }, [username]);
+    })();
+    return () => { cancelled = true; };
+  }, [username, retryCount]);
 
   if (!loaded) {
     return <div className="min-h-screen flex items-center justify-center text-muted">Loading...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-danger mb-4">{error}</p>
+        <button onClick={() => setRetryCount(c => c + 1)} className="text-accent hover:underline text-sm cursor-pointer">
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (!creator) {

@@ -24,14 +24,18 @@ export default function ReadingHistoryPage() {
   const { user, isAuthenticated } = useAuthStore();
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getReadingHistory(user.id).then((data) => {
-      setHistory(data);
-      setLoaded(true);
-    });
-  }, [user]);
+    let cancelled = false;
+    getReadingHistory(user.id)
+      .then((data) => { if (!cancelled) { setError(null); setHistory(data); setLoaded(true); } })
+      .catch(() => { if (!cancelled) { setError("Failed to load reading history"); setLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [user, retryCount]);
 
   if (!isAuthenticated) {
     return (
@@ -51,7 +55,14 @@ export default function ReadingHistoryPage() {
         <h1 className="text-2xl font-bold">Reading History</h1>
       </div>
 
-      {!loaded ? (
+      {error ? (
+        <div className="text-center py-16">
+          <p className="text-danger mb-4">{error}</p>
+          <button onClick={() => setRetryCount(c => c + 1)} className="text-accent hover:underline text-sm cursor-pointer">
+            Try again
+          </button>
+        </div>
+      ) : !loaded ? (
         <div className="text-center py-16 text-muted">Loading...</div>
       ) : history.length === 0 ? (
         <div className="text-center py-16">

@@ -245,6 +245,8 @@ export default function SettingsPage() {
             label="Monthly Subscription Price ($)"
             id="subscription_price"
             type="number"
+            min="1"
+            max="999"
             value={String(subscriptionPrice)}
             onChange={(e) => setSubscriptionPrice(Number(e.target.value))}
             placeholder="9.99"
@@ -254,13 +256,18 @@ export default function SettingsPage() {
             <Button
               size="sm"
               onClick={async () => {
+                if (subscriptionPrice < 1 || subscriptionPrice > 999) {
+                  toast("error", "Price must be between $1 and $999");
+                  return;
+                }
                 setSavingSection("pricing");
                 try {
                   await updateProfile(currentUser.id, {
                     subscription_price: subscriptionPrice,
                   });
+                  toast("success", "Pricing saved");
                 } catch {
-                  // handle silently
+                  toast("error", "Failed to save pricing");
                 } finally {
                   setSavingSection(null);
                 }

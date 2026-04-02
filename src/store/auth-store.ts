@@ -7,6 +7,7 @@ interface AuthState {
   user: Profile | null;
   isAuthenticated: boolean;
   isAgeVerified: boolean;
+  hydrated: boolean;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -23,6 +24,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isAgeVerified: false,
+      hydrated: false,
       loading: false,
       error: null,
 
@@ -102,6 +104,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         isAgeVerified: state.isAgeVerified,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) state.hydrated = true;
+      },
     }
   )
 );

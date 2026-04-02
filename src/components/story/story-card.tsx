@@ -21,7 +21,14 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
         <div className="flex gap-3 p-3 rounded-lg hover:bg-surface-hover transition-colors">
           <div className="shrink-0 w-12 h-16 rounded-md bg-accent/10 flex items-center justify-center overflow-hidden">
             {story.cover_image_url ? (
-              <img src={story.cover_image_url} alt="" className="w-full h-full object-cover" />
+              <img
+                src={story.cover_image_url}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
             ) : isChat ? (
               <MessageSquare size={20} className="text-accent" />
             ) : (
@@ -50,7 +57,14 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
         {/* Cover area */}
         <div className="h-32 bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center relative overflow-hidden">
           {story.cover_image_url ? (
-            <img src={story.cover_image_url} alt="" className="w-full h-full object-cover" />
+            <img
+              src={story.cover_image_url}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
           ) : isChat ? (
             <MessageSquare size={36} className="text-accent/40" />
           ) : (
