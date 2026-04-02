@@ -359,7 +359,8 @@ export default function StoryPage() {
               const isPublished = ch.status === "published";
               const isScheduled = ch.status === "scheduled";
               const isDraft = ch.status === "draft";
-              const isLocked = story.is_gated && ch.chapter_number > 2 && !unlocked;
+              const FREE_PREVIEW_CHAPTERS = 1;
+              const isLocked = story.is_gated && ch.chapter_number > FREE_PREVIEW_CHAPTERS && !unlocked;
 
               return (
                 <div key={ch.id}>

@@ -274,7 +274,7 @@ export default function ChapterPage() {
                   <SubscribeButton
                     targetType="story"
                     targetName={story.title}
-                    price={4.99}
+                    price={story.price || 4.99}
                     storyId={story.id}
                     creatorId={story.creator_id}
                   />

@@ -14,6 +14,7 @@ import {
   createStory,
   createChapter,
   saveChapterContent,
+  deleteStory,
   generateSlug,
 } from "@/lib/supabase/queries";
 import {
@@ -310,20 +311,26 @@ export default function ImportPage() {
 
       if (!story) throw new Error("Failed to create story");
 
-      // Create all chapters
-      for (let i = 0; i < validChapters.length; i++) {
-        const ch = validChapters[i];
-        const chapter = await createChapter({
-          story_id: story.id,
-          chapter_number: i + 1,
-          title: ch.title,
-          status: asDraft ? "draft" : "published",
-        });
+      // Create all chapters — rollback story on failure
+      try {
+        for (let i = 0; i < validChapters.length; i++) {
+          const ch = validChapters[i];
+          const chapter = await createChapter({
+            story_id: story.id,
+            chapter_number: i + 1,
+            title: ch.title,
+            status: asDraft ? "draft" : "published",
+          });
 
-        if (!chapter) throw new Error(`Failed to create chapter ${i + 1}`);
+          if (!chapter) throw new Error(`Failed to create chapter ${i + 1}`);
 
-        const contentJson = buildChapterContent(ch.images);
-        await saveChapterContent(chapter.id, contentJson);
+          const contentJson = buildChapterContent(ch.images);
+          await saveChapterContent(chapter.id, contentJson);
+        }
+      } catch (chapterErr) {
+        // Rollback: delete the orphaned story
+        await deleteStory(story.id).catch(() => {});
+        throw chapterErr;
       }
 
       setPublishing(false);
