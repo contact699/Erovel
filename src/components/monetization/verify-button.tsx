@@ -99,7 +99,24 @@ export function VerifyButton() {
               <Button
                 variant="secondary"
                 className="w-full"
+                loading={loading}
                 onClick={async () => {
+                  setLoading(true);
+                  // Poll the Veriff API to check status
+                  try {
+                    const res = await fetch("/api/veriff/check", { method: "POST" });
+                    const data = await res.json();
+                    if (data.verified) {
+                      await refreshProfile();
+                      toast("success", "Identity verified!");
+                      setOpen(false);
+                      setVeriffUrl(null);
+                      setLoading(false);
+                      return;
+                    }
+                  } catch {
+                    // fall through to profile check
+                  }
                   await refreshProfile();
                   const state = useAuthStore.getState();
                   if (state.user?.is_verified) {
@@ -109,6 +126,7 @@ export function VerifyButton() {
                   } else {
                     toast("info", "Verification still in progress. Check back shortly.");
                   }
+                  setLoading(false);
                 }}
               >
                 I&apos;ve completed verification
