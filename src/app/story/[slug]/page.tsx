@@ -172,6 +172,9 @@ export default function StoryPage() {
                 src={story.cover_image_url}
                 alt=""
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             </div>
           )}
