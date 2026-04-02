@@ -52,7 +52,7 @@ export async function POST() {
       },
       body: JSON.stringify({
         verification: {
-          callback: `https://erovel.com/api/veriff/webhook`,
+          callback: `https://erovel.com/dashboard`,
           person: {
             firstName: profile.display_name.split(" ")[0] || profile.display_name,
             lastName: profile.display_name.split(" ").slice(1).join(" ") || "-",
