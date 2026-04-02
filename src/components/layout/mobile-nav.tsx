@@ -17,7 +17,11 @@ export function MobileNav() {
       ? [{ href: "/dashboard", icon: PenTool, label: "Dashboard" }]
       : []),
     {
-      href: isAuthenticated ? `/creator/${user?.username}` : "/login",
+      href: isAuthenticated
+        ? user?.role === "creator"
+          ? `/creator/${user?.username}`
+          : "/settings"
+        : "/login",
       icon: User,
       label: isAuthenticated ? "Profile" : "Login",
     },
