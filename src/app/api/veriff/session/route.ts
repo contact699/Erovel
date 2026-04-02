@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  return createClient(url, serviceKey);
+}
 
 const VERIFF_API_URL = "https://stationapi.veriff.com/v1";
 
@@ -63,13 +71,16 @@ export async function POST() {
     const veriffData = await veriffResponse.json();
     const session = veriffData.verification;
 
-    // Store session in DB
-    await supabase.from("verification_sessions").insert({
-      user_id: profile.id,
-      veriff_session_id: session.id,
-      status: session.status,
-      veriff_url: session.url,
-    });
+    // Store session in DB (use admin client to bypass RLS)
+    const adminClient = getAdminClient();
+    if (adminClient) {
+      await adminClient.from("verification_sessions").insert({
+        user_id: profile.id,
+        veriff_session_id: session.id,
+        status: session.status,
+        veriff_url: session.url,
+      });
+    }
 
     return NextResponse.json({
       sessionId: session.id,
