@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const VERIFF_API_URL = "https://stationapi.veriff.com/v1";
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createServerSupabaseClient();
     if (!supabase) {

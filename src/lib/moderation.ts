@@ -26,14 +26,8 @@ const BLOCKED_LABELS = [
 ];
 
 // Labels that are expected on an adult platform (allowed but logged)
-const ADULT_ALLOWED_LABELS = [
-  "Explicit Nudity",
-  "Nudity",
-  "Sexual Activity",
-  "Suggestive",
-  "Partial Nudity",
-  "Revealing Clothes",
-];
+// Kept for documentation — these are NOT blocked
+// "Explicit Nudity", "Nudity", "Sexual Activity", "Suggestive", "Partial Nudity", "Revealing Clothes"
 
 /**
  * Scan an image for prohibited content using AWS Rekognition.
