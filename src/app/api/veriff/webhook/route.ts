@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+export async function GET() {
+  return NextResponse.json({ status: "Veriff webhook endpoint active. This URL accepts POST requests from Veriff." });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
