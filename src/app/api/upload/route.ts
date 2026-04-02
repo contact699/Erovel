@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadToBunny } from "@/lib/bunny";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateId } from "@/lib/utils";
+import { moderateImage } from "@/lib/moderation";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_TYPES = [
@@ -51,8 +52,20 @@ export async function POST(request: NextRequest) {
     if (file.type === "image/gif") mediaType = "gif";
     else if (file.type.startsWith("video/")) mediaType = "video";
 
-    // Upload to BunnyCDN
     const buffer = new Uint8Array(await file.arrayBuffer());
+
+    // Scan images for prohibited content (skip videos — Rekognition is image-only)
+    if (file.type.startsWith("image/")) {
+      const modResult = await moderateImage(buffer);
+      if (modResult.blocked) {
+        return NextResponse.json(
+          { error: modResult.reason || "Content blocked by moderation" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Upload to BunnyCDN
     const { url, cdnPath } = await uploadToBunny(buffer, fileName, folder);
 
     // Record in database
