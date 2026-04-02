@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { updateProfile } from "@/lib/supabase/queries";
+import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,10 @@ import {
   DollarSign,
   User,
   Sparkles,
+  ShieldCheck,
+  ExternalLink,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 
 export default function OnboardingPage() {
@@ -31,6 +36,11 @@ export default function OnboardingPage() {
   );
   const [saving, setSaving] = useState(false);
 
+  // Verification state
+  const [veriffUrl, setVeriffUrl] = useState<string | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyChecking, setVerifyChecking] = useState(false);
+
   if (!user) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
@@ -41,6 +51,9 @@ export default function OnboardingPage() {
       </div>
     );
   }
+
+  // If already verified, skip to step 3 on mount
+  const effectiveStep = step === 2 && user.is_verified ? 3 : step;
 
   async function handleSaveProfile() {
     if (!user) return;
@@ -53,9 +66,52 @@ export default function OnboardingPage() {
       await refreshProfile();
       setStep(2);
     } catch {
-      // silently fail
+      toast("error", "Failed to save profile");
     }
     setSaving(false);
+  }
+
+  async function handleStartVerification() {
+    setVerifyLoading(true);
+    try {
+      const res = await fetch("/api/veriff/session", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast("error", data.error || "Failed to start verification");
+        setVerifyLoading(false);
+        return;
+      }
+      setVeriffUrl(data.url);
+    } catch {
+      toast("error", "Failed to connect to verification service");
+    }
+    setVerifyLoading(false);
+  }
+
+  async function handleCheckVerification() {
+    setVerifyChecking(true);
+    try {
+      const res = await fetch("/api/veriff/check", { method: "POST" });
+      const data = await res.json();
+      if (data.verified) {
+        await refreshProfile();
+        toast("success", "Identity verified!");
+        setStep(3);
+        setVerifyChecking(false);
+        return;
+      }
+      await refreshProfile();
+      const state = useAuthStore.getState();
+      if (state.user?.is_verified) {
+        toast("success", "Identity verified!");
+        setStep(3);
+      } else {
+        toast("info", "Verification still in progress. This can take a few minutes.");
+      }
+    } catch {
+      toast("error", "Failed to check status");
+    }
+    setVerifyChecking(false);
   }
 
   async function handleSavePricing() {
@@ -66,9 +122,9 @@ export default function OnboardingPage() {
         subscription_price: subscriptionPrice,
       });
       await refreshProfile();
-      setStep(3);
+      setStep(4);
     } catch {
-      // silently fail
+      toast("error", "Failed to save pricing");
     }
     setSaving(false);
   }
@@ -83,18 +139,18 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg space-y-8">
         {/* Progress */}
         <div className="flex items-center justify-center gap-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all ${
-                s <= step ? "bg-accent w-12" : "bg-border w-8"
+                s <= effectiveStep ? "bg-accent w-10" : "bg-border w-6"
               }`}
             />
           ))}
         </div>
 
         {/* Step 1: Profile */}
-        {step === 1 && (
+        {effectiveStep === 1 && (
           <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
@@ -142,8 +198,91 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 2: Pricing */}
-        {step === 2 && (
+        {/* Step 2: Identity Verification */}
+        {effectiveStep === 2 && (
+          <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <ShieldCheck size={24} className="text-accent" />
+              </div>
+              <h1 className="text-xl font-bold">Verify Your Identity</h1>
+              <p className="text-sm text-muted">
+                Identity verification is required for 2257 compliance before
+                you can publish content on Erovel.
+              </p>
+            </div>
+
+            {!veriffUrl ? (
+              <>
+                <div className="flex items-start gap-3 p-3 bg-accent/5 border border-accent/20 rounded-lg">
+                  <AlertCircle size={20} className="text-accent shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium">Why is this required?</p>
+                    <p className="text-muted mt-1">
+                      All platforms hosting adult content must verify that creators
+                      are over 18 and maintain identity records. This is a one-time
+                      process that takes about 2 minutes. Your information is
+                      securely processed by Veriff and never stored on our servers.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-sm text-muted space-y-2">
+                  <p>You will need:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>A government-issued photo ID (passport, driver&apos;s license)</li>
+                    <li>A device with a camera for a selfie</li>
+                    <li>About 2 minutes</li>
+                  </ul>
+                </div>
+
+                <Button className="w-full" onClick={handleStartVerification} loading={verifyLoading}>
+                  <ShieldCheck size={16} />
+                  Start Verification
+                </Button>
+
+                <div className="flex gap-3">
+                  <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">
+                    Back
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center space-y-3">
+                  <CheckCircle size={32} className="text-success mx-auto" />
+                  <p className="text-sm text-muted">
+                    Complete the verification in the window that opens.
+                    Once done, click the button below to continue.
+                  </p>
+                </div>
+
+                <a
+                  href={veriffUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent-hover transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  Open Verification
+                </a>
+
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={handleCheckVerification}
+                  loading={verifyChecking}
+                >
+                  <Check size={16} />
+                  I&apos;ve completed verification
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Pricing */}
+        {effectiveStep === 3 && (
           <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
@@ -162,6 +301,7 @@ export default function OnboardingPage() {
                 label="Monthly Subscription Price ($)"
                 type="number"
                 min="1"
+                max="999"
                 step="0.01"
                 value={subscriptionPrice}
                 onChange={(e) =>
@@ -192,7 +332,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">
+              <Button variant="secondary" onClick={() => setStep(2)} className="flex-1">
                 Back
               </Button>
               <Button className="flex-1" onClick={handleSavePricing} loading={saving}>
@@ -203,8 +343,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3: Quick Start */}
-        {step === 3 && (
+        {/* Step 4: Quick Start */}
+        {effectiveStep === 4 && (
           <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
@@ -212,6 +352,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-xl font-bold">You&apos;re all set!</h1>
               <p className="text-sm text-muted">
+                Your identity is verified and your profile is ready.
                 What would you like to do first?
               </p>
             </div>
