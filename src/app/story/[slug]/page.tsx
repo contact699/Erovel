@@ -26,6 +26,7 @@ import {
   addComment,
   createNotification,
 } from "@/lib/supabase/queries";
+import { toast } from "@/components/ui/toast";
 import type { Story, Chapter, Comment } from "@/lib/types";
 import { ReportButton } from "@/components/ui/report-button";
 import { ShareButton } from "@/components/ui/share-button";
@@ -451,6 +452,7 @@ export default function StoryPage() {
                       if (newComment) {
                         setComments((prev) => [newComment as Comment, ...prev]);
                         setCommentBody("");
+                        toast("success", "Comment posted");
                         // Notify story creator of new comment
                         if (story.creator_id !== user.id) {
                           createNotification({

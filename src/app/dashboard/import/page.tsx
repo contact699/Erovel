@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import type { StoryFormat } from "@/lib/types";
+import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/store/auth-store";
 import {
   createStory,
@@ -327,6 +328,7 @@ export default function ImportPage() {
 
       setPublishing(false);
       setPublished(true);
+      toast("success", `Story created with ${validChapters.length} chapters!`);
 
       setTimeout(() => {
         router.push("/dashboard/stories");
@@ -338,6 +340,7 @@ export default function ImportPage() {
           ? String((err as { message: string }).message)
           : "Failed to create story";
       setError(msg);
+      toast("error", msg);
     }
   }
 

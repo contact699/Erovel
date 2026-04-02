@@ -19,8 +19,14 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
     return (
       <Link href={`/story/${story.slug}`} className="block group">
         <div className="flex gap-3 p-3 rounded-lg hover:bg-surface-hover transition-colors">
-          <div className="shrink-0 w-12 h-16 rounded-md bg-accent/10 flex items-center justify-center">
-            {isChat ? <MessageSquare size={20} className="text-accent" /> : <BookOpen size={20} className="text-accent" />}
+          <div className="shrink-0 w-12 h-16 rounded-md bg-accent/10 flex items-center justify-center overflow-hidden">
+            {story.cover_image_url ? (
+              <img src={story.cover_image_url} alt="" className="w-full h-full object-cover" />
+            ) : isChat ? (
+              <MessageSquare size={20} className="text-accent" />
+            ) : (
+              <BookOpen size={20} className="text-accent" />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium truncate group-hover:text-accent transition-colors">

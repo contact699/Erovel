@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth-store";
 import { followCreator, unfollowCreator, isFollowing, createNotification } from "@/lib/supabase/queries";
+import { toast } from "@/components/ui/toast";
 import { UserPlus, UserCheck } from "lucide-react";
 
 interface FollowButtonProps {
@@ -12,7 +13,7 @@ interface FollowButtonProps {
   onFollowChange?: (following: boolean) => void;
 }
 
-export function FollowButton({ creatorId, onFollowChange }: FollowButtonProps) {
+export function FollowButton({ creatorId, creatorName, onFollowChange }: FollowButtonProps) {
   const { user, isAuthenticated } = useAuthStore();
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,10 +33,12 @@ export function FollowButton({ creatorId, onFollowChange }: FollowButtonProps) {
         await unfollowCreator(user.id, creatorId);
         setFollowing(false);
         onFollowChange?.(false);
+        toast("info", `Unfollowed ${creatorName}`);
       } else {
         await followCreator(user.id, creatorId);
         setFollowing(true);
         onFollowChange?.(true);
+        toast("success", `Following ${creatorName}`);
         // Notify creator of new follower
         createNotification({
           user_id: creatorId,

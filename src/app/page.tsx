@@ -30,8 +30,10 @@ export default function HomePage() {
   const [continueReading, setContinueReading] = useState<ReadingHistoryItem[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     if (user) {
       getReadingHistory(user.id).then((data) => {
+        if (cancelled) return;
         const seen = new Set<string>();
         const unique = (data as ReadingHistoryItem[]).filter((item) => {
           if (!item.story || seen.has(item.story.id)) return false;
@@ -40,9 +42,11 @@ export default function HomePage() {
         });
         setContinueReading(unique.slice(0, 3));
       });
-    } else {
-      setContinueReading([]);
     }
+    return () => {
+      cancelled = true;
+      setContinueReading([]);
+    };
   }, [user]);
 
   useEffect(() => {

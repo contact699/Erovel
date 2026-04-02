@@ -40,6 +40,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
+import { toast } from "@/components/ui/toast";
 
 interface ChapterDraft {
   id: string;
@@ -348,10 +349,12 @@ export default function EditStoryPage() {
       }
 
       setSaveSuccess(true);
+      toast("success", "Changes saved");
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to save changes";
       setSaveError(message);
+      toast("error", message);
     } finally {
       setSaving(false);
     }
@@ -424,10 +427,12 @@ export default function EditStoryPage() {
         status: "published",
       });
 
+      toast("success", "Story published!");
       router.push("/dashboard");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to publish";
       setSaveError(message);
+      toast("error", message);
     } finally {
       setPublishing(false);
     }

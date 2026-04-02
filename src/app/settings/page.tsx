@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { updateProfile } from "@/lib/supabase/queries";
+import { toast } from "@/components/ui/toast";
 import {
   User,
   Lock,
@@ -84,7 +85,10 @@ export default function SettingsPage() {
 
   function handleSave(section: string) {
     setSavingSection(section);
-    setTimeout(() => setSavingSection(null), 1000);
+    setTimeout(() => {
+      setSavingSection(null);
+      toast("success", `${section.charAt(0).toUpperCase() + section.slice(1)} saved`);
+    }, 500);
   }
 
   function toggleNotification(key: keyof typeof notifications) {
