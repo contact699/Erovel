@@ -330,18 +330,15 @@ export default function EditStoryPage() {
           }
         }
 
-        // Update chapter metadata with schedule info
+        // Update chapter metadata – save schedule dates but keep status as-is
+        // (status is only promoted to "scheduled"/"published" via handlePublish)
         const publishAt = scheduleDates.get(ch.id);
         const chapterUpdates: Record<string, unknown> = {
           title: ch.title,
           chapter_number: ch.chapterNumber,
         };
         if (publishAt) {
-          const now = new Date();
-          if (new Date(publishAt) > now) {
-            chapterUpdates.status = "scheduled";
-            chapterUpdates.publish_at = publishAt;
-          }
+          chapterUpdates.publish_at = publishAt;
         }
 
         await updateChapterDb(chDbId, chapterUpdates);

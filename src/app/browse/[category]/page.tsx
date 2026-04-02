@@ -20,6 +20,8 @@ export default function CategoryPage() {
   const [stories, setStories] = useState<Story[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [formatFilter, setFormatFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortOption>("trending");
@@ -39,8 +41,8 @@ export default function CategoryPage() {
   ];
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
+    let cancelled = false;
+    (async () => {
       try {
         const [categoriesData, storiesData] = await Promise.all([
           getCategories(),
@@ -50,16 +52,21 @@ export default function CategoryPage() {
             sort,
           }),
         ]);
-        setCategories(categoriesData as Category[]);
-        setStories(storiesData as Story[]);
-      } catch {
-        // Silently handle errors
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setCategories(categoriesData as Category[]);
+          setStories(storiesData as Story[]);
+          setError(null);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load stories. Please try again.");
+          setLoading(false);
+        }
       }
-    }
-    fetchData();
-  }, [categorySlug, formatFilter, sort]);
+    })();
+    return () => { cancelled = true; };
+  }, [categorySlug, formatFilter, sort, retryCount]);
 
   // Client-side filtering for format (since the query already filters, this is just
   // for the case where the category filter uses slug matching)
@@ -75,6 +82,21 @@ export default function CategoryPage() {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+        <p className="text-red-500 mb-6">{error}</p>
+        <button
+          onClick={() => setRetryCount((c) => c + 1)}
+          className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors cursor-pointer"
+        >
+          Retry
+        </button>
       </div>
     );
   }

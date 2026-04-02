@@ -44,6 +44,8 @@ export default function ChapterPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chapter, setChapter] = useState<(Chapter & { content?: { content_json: unknown } | null }) | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,18 +61,21 @@ export default function ChapterPage() {
 
   // Fetch story, chapters, and chapter content
   useEffect(() => {
+    let cancelled = false;
     async function fetchData() {
-      setLoading(true);
       try {
         const storyData = await getStoryBySlug(slug);
+        if (cancelled) return;
         if (storyData) {
           setStory(storyData as Story);
           const [chaptersData, chapterData] = await Promise.all([
             getChapters(storyData.id),
             getChapterWithContent(storyData.id, chapterNum),
           ]);
+          if (cancelled) return;
           setChapters(chaptersData as Chapter[]);
           setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
+          setError(null);
 
           // Record story view for all visitors (analytics)
           if (chapterData) {
@@ -83,14 +88,20 @@ export default function ChapterPage() {
             updateBookmarkProgress(user.id, storyData.id, chapterData.id).catch(() => {});
           }
         }
-      } catch {
-        // Silently handle errors
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load chapter. Please try again.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
+    setLoading(true);
     fetchData();
-  }, [slug, chapterNum, user]);
+    return () => { cancelled = true; };
+  }, [slug, chapterNum, user, retryCount]);
 
   const isChat = story?.format === "chat";
 
@@ -128,6 +139,23 @@ export default function ChapterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold">Something went wrong</h1>
+          <p className="text-red-500">{error}</p>
+          <button
+            onClick={() => setRetryCount((c) => c + 1)}
+            className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

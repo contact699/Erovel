@@ -41,25 +41,36 @@ function BrowseContent() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const PAGE_SIZE = 12;
 
   useEffect(() => {
-    async function load() {
-      setLoaded(false);
-      setPage(1);
-      setHasMore(true);
-      const [storiesData, catsData] = await Promise.all([
-        getPublishedStories({ category: categoryFilter, format: formatFilter, sort, limit: PAGE_SIZE, offset: 0 }),
-        getCategories(),
-      ]);
-      setStories(storiesData);
-      setCategories(catsData);
-      setHasMore(storiesData.length >= PAGE_SIZE);
-      setLoaded(true);
-    }
-    load();
-  }, [categoryFilter, formatFilter, sort]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [storiesData, catsData] = await Promise.all([
+          getPublishedStories({ category: categoryFilter, format: formatFilter, sort, limit: PAGE_SIZE, offset: 0 }),
+          getCategories(),
+        ]);
+        if (!cancelled) {
+          setStories(storiesData);
+          setCategories(catsData);
+          setHasMore(storiesData.length >= PAGE_SIZE);
+          setPage(1);
+          setError(null);
+          setLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load stories. Please try again.");
+          setLoaded(true);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [categoryFilter, formatFilter, sort, retryCount]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -150,6 +161,16 @@ function BrowseContent() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <StoryCardSkeleton key={i} />
               ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-16">
+              <p className="text-lg text-red-500 mb-4">{error}</p>
+              <button
+                onClick={() => setRetryCount((c) => c + 1)}
+                className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
             </div>
           ) : stories.length > 0 ? (
             <>

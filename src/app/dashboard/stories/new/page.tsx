@@ -257,10 +257,11 @@ export default function NewStoryPage() {
         }
 
         if (dbId) {
-          // Update chapter title / number
+          // Update chapter title / number, keeping status as draft
           await updateChapter(dbId, {
             title: ch.title,
             chapter_number: ch.chapterNumber,
+            status: "draft",
           });
 
           // Save content
