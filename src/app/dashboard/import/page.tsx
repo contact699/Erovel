@@ -66,7 +66,7 @@ export default function ImportPage() {
   const [storyTitle, setStoryTitle] = useState("");
   const [storyDescription, setStoryDescription] = useState("");
   const [category, setCategory] = useState("other");
-  const [format, setFormat] = useState<StoryFormat>("chat");
+  const [format, setFormat] = useState<StoryFormat>("prose");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
 
