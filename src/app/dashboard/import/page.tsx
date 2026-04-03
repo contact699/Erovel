@@ -75,9 +75,82 @@ export default function ImportPage() {
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [rehostProgress, setRehostProgress] = useState({ current: 0, total: 0, failed: 0 });
+  const [rehosting, setRehosting] = useState(false);
 
   // Drag state
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  async function rehostImage(url: string): Promise<string> {
+    const res = await fetch("/api/rehost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+
+    if (res.status === 403) {
+      const data = await res.json();
+      throw new Error(`blocked:${data.reason || "Content blocked by moderation"}`);
+    }
+
+    if (!res.ok) {
+      throw new Error("rehost_failed");
+    }
+
+    const data = await res.json();
+    return data.cdnUrl;
+  }
+
+  async function rehostAllImages(chaptersToRehost: ChapterImport[]): Promise<ChapterImport[]> {
+    const updated = chaptersToRehost.map((ch) => ({
+      ...ch,
+      images: ch.images.map((img) => ({ ...img })),
+    }));
+
+    // Count total selected images
+    let total = 0;
+    for (const ch of updated) {
+      for (const img of ch.images) {
+        if (img.selected) total++;
+      }
+    }
+
+    setRehostProgress({ current: 0, total, failed: 0 });
+    setRehosting(true);
+
+    let current = 0;
+    let failed = 0;
+
+    for (const ch of updated) {
+      for (const img of ch.images) {
+        if (!img.selected) continue;
+
+        try {
+          const cdnUrl = await rehostImage(img.url);
+          img.url = cdnUrl;
+        } catch (err: unknown) {
+          const msg =
+            err && typeof err === "object" && "message" in err
+              ? String((err as { message: string }).message)
+              : "";
+
+          if (msg.startsWith("blocked:")) {
+            img.selected = false;
+            toast("error", `Image blocked: ${msg.slice(8)}`);
+          } else {
+            failed++;
+            // Keep original URL as fallback
+          }
+        }
+
+        current++;
+        setRehostProgress({ current, total, failed });
+      }
+    }
+
+    setRehosting(false);
+    return updated;
+  }
 
   const parseUrls = useCallback(() => {
     return urlsText
@@ -287,12 +360,26 @@ export default function ImportPage() {
         return;
       }
 
-      const totalImages = validChapters.reduce(
+      // Re-host images to BunnyCDN
+      const rehostedChapters = await rehostAllImages(validChapters);
+
+      // Re-filter after rehosting (some images may have been deselected due to moderation)
+      const finalChapters = rehostedChapters.filter(
+        (ch) => !ch.error && ch.images.some((img) => img.selected)
+      );
+
+      if (finalChapters.length === 0) {
+        setError("No chapters with selected images after moderation.");
+        setPublishing(false);
+        return;
+      }
+
+      const totalImages = finalChapters.reduce(
         (sum, ch) => sum + ch.images.filter((img) => img.selected).length,
         0
       );
 
-      const firstImage = validChapters[0]?.images.find((img) => img.selected && img.type === "image");
+      const firstImage = finalChapters[0]?.images.find((img) => img.selected && img.type === "image");
 
       const story = await createStory({
         creator_id: user.id,
@@ -300,7 +387,7 @@ export default function ImportPage() {
         slug: generateSlug(storyTitle || "untitled-story"),
         description:
           storyDescription ||
-          `Imported from imgchest (${validChapters.length} chapters, ${totalImages} images)`,
+          `Imported from imgchest (${finalChapters.length} chapters, ${totalImages} images)`,
         format,
         category_id: category,
         status: asDraft ? "draft" : "published",
@@ -313,8 +400,8 @@ export default function ImportPage() {
 
       // Create all chapters — rollback story on failure
       try {
-        for (let i = 0; i < validChapters.length; i++) {
-          const ch = validChapters[i];
+        for (let i = 0; i < finalChapters.length; i++) {
+          const ch = finalChapters[i];
           const chapter = await createChapter({
             story_id: story.id,
             chapter_number: i + 1,
@@ -335,7 +422,7 @@ export default function ImportPage() {
 
       setPublishing(false);
       setPublished(true);
-      toast("success", `Story created with ${validChapters.length} chapters!`);
+      toast("success", `Story created with ${finalChapters.length} chapters!`);
 
       setTimeout(() => {
         router.push("/dashboard/stories");
@@ -792,6 +879,35 @@ export default function ImportPage() {
                       </div>
                     ))}
                 </div>
+
+                {(rehosting || (publishing && rehostProgress.total > 0)) && (
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center justify-between text-sm text-muted">
+                      <span>
+                        Uploading images to CDN... {rehostProgress.current}/{rehostProgress.total}
+                        {rehostProgress.failed > 0 && ` (${rehostProgress.failed} failed)`}
+                      </span>
+                      <span>
+                        {rehostProgress.total > 0
+                          ? Math.round((rehostProgress.current / rehostProgress.total) * 100)
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-300"
+                        style={{
+                          width: `${
+                            rehostProgress.total > 0
+                              ? (rehostProgress.current / rehostProgress.total) * 100
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {error && (
                   <div className="flex items-center gap-2 text-sm text-danger bg-danger/10 rounded-lg px-3 py-2 mb-4">
