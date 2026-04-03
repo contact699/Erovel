@@ -238,6 +238,15 @@ export default function ChapterPage() {
         </div>
       </div>
 
+      {/* ---- Taboo fiction disclaimer ---- */}
+      {story.category?.slug === "taboo" && (
+        <div className="max-w-3xl mx-auto px-4 mb-4">
+          <div className="text-xs text-muted text-center py-2 px-4 bg-surface border border-border rounded-lg">
+            This is a work of fiction. All characters depicted are 18 years of age or older.
+          </div>
+        </div>
+      )}
+
       {/* ---- Chapter content ---- */}
       <div className="max-w-3xl mx-auto px-4 pb-32">
         {isGatedChapter ? (

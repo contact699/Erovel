@@ -351,6 +351,13 @@ export default function StoryPage() {
           </div>
         </section>
 
+        {/* ---- Taboo fiction disclaimer ---- */}
+        {story.category?.slug === "taboo" && (
+          <div className="text-xs text-muted text-center py-2 px-4 bg-surface border border-border rounded-lg">
+            This is a work of fiction. All characters depicted are 18 years of age or older.
+          </div>
+        )}
+
         {/* ---- Chapter list ---- */}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
