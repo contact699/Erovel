@@ -36,6 +36,7 @@ import {
   updateChapter as updateChapterDb,
   saveChapterContent,
   createChapter,
+  saveStoryTags,
 } from "@/lib/supabase/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
@@ -351,6 +352,9 @@ export default function EditStoryPage() {
         }
       }
 
+      // Save tags
+      await saveStoryTags(storyId, tags);
+
       setSaveSuccess(true);
       toast("success", "Changes saved");
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -418,6 +422,9 @@ export default function EditStoryPage() {
           });
         }
       }
+
+      // Save tags
+      await saveStoryTags(storyId, tags);
 
       // Update story to published
       await updateStory(storyId, {

@@ -528,6 +528,48 @@ export async function createNotification(notification: {
 }
 
 // ============================================================
+// TAGS
+// ============================================================
+
+/** Persist tags for a story — creates missing tags, links all to story */
+export async function saveStoryTags(storyId: string, tagNames: string[]): Promise<void> {
+  const supabase = createClient();
+  if (!supabase || tagNames.length === 0) return;
+
+  const normalized = tagNames.map(t => t.trim().toLowerCase()).filter(Boolean);
+  if (normalized.length === 0) return;
+
+  // Remove existing story_tags for this story
+  await supabase.from("story_tags").delete().eq("story_id", storyId);
+
+  for (const name of normalized) {
+    const slug = name.replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+    // Try to find existing tag
+    const { data: existing } = await supabase
+      .from("tags")
+      .select("id")
+      .eq("slug", slug)
+      .single();
+
+    let tagId: string;
+    if (existing) {
+      tagId = existing.id;
+    } else {
+      const { data: created } = await supabase
+        .from("tags")
+        .insert({ name, slug })
+        .select("id")
+        .single();
+      if (!created) continue;
+      tagId = created.id;
+    }
+
+    await supabase.from("story_tags").insert({ story_id: storyId, tag_id: tagId });
+  }
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 

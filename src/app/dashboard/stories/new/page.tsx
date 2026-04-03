@@ -37,6 +37,7 @@ import {
   updateChapter,
   deleteStory,
   generateSlug,
+  saveStoryTags,
 } from "@/lib/supabase/queries";
 import type { StoryFormat, ChatContent } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
@@ -223,6 +224,11 @@ export default function NewStoryPage() {
       setChapters((prev) =>
         prev.map((c, i) => (i === 0 ? { ...c, dbId: ch.id } : c))
       );
+
+      // Save tags
+      if (tags.length > 0) {
+        await saveStoryTags(story.id, tags);
+      }
 
       setStep(2);
     } catch (err: unknown) {
