@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { Story } from "@/lib/types";
+import type { Story, BadgeLevel } from "@/lib/types";
+import { RightsBadge } from "@/components/story/rights-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatRelativeDate, estimateReadingTime } from "@/lib/utils";
@@ -79,6 +80,9 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
                 <Lock size={10} className="mr-1" />
                 Premium
               </Badge>
+            )}
+            {story.badge_level && story.badge_level !== "none" && (
+              <RightsBadge badgeLevel={story.badge_level as BadgeLevel} size="sm" />
             )}
           </div>
         </div>
