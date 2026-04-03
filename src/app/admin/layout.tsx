@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Flag,
   Users,
+  FileCheck,
   Shield,
   ChevronLeft,
   Menu,
@@ -18,6 +19,7 @@ import { useState, type ReactNode } from "react";
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/reports", label: "Reports", icon: Flag },
+  { href: "/admin/rights-review", label: "Rights Review", icon: FileCheck },
   { href: "/admin/users", label: "Users", icon: Users },
 ];
 
