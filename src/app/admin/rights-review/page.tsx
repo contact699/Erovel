@@ -209,6 +209,35 @@ export default function AdminRightsReviewPage() {
         return;
       }
 
+      // Send notification to the creator (non-blocking)
+      try {
+        const declaration = declarations.find((dec) => dec.id === id);
+        if (declaration) {
+          const notifTitle =
+            action === "approve"
+              ? "Rights declaration approved"
+              : action === "reject"
+                ? "Rights declaration rejected"
+                : "More info requested for rights declaration";
+          const notifBody =
+            action === "approve"
+              ? `Your permission documentation for "${declaration.subject_name || "content"}" has been approved.`
+              : action === "reject"
+                ? `Your permission documentation for "${declaration.subject_name || "content"}" was rejected: ${notes}`
+                : `We need more information about your permission for "${declaration.subject_name || "content"}": ${notes}`;
+
+          await supabase.from("notifications").insert({
+            user_id: declaration.creator_id,
+            type: "rights_review",
+            title: notifTitle,
+            body: notifBody,
+            link: "/dashboard/stories",
+          });
+        }
+      } catch {
+        // Notification failure should not block the main action
+      }
+
       toast("success", `Declaration ${action === "approve" ? "approved" : action === "reject" ? "rejected" : "returned for more info"}.`);
       setAdminNotes((prev) => ({ ...prev, [id]: "" }));
       setExpandedId(null);
