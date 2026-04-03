@@ -539,3 +539,100 @@ export function generateSlug(title: string): string {
     .slice(0, 80)
     + "-" + Math.random().toString(36).slice(2, 8);
 }
+
+// ============================================================
+// CONTENT RIGHTS DECLARATIONS
+// ============================================================
+
+export async function getDeclarationsByCreator(creatorId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("content_rights_declarations")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+export async function getDeclarationsByStory(storyId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("story_rights_declarations")
+    .select("declaration:content_rights_declarations(*)")
+    .eq("story_id", storyId);
+  return (data || []).map((d: { declaration: unknown }) => d.declaration);
+}
+
+export async function getApprovedDeclarationsByCreator(creatorId: string) {
+  const supabase = createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("content_rights_declarations")
+    .select("*")
+    .eq("creator_id", creatorId)
+    .eq("status", "approved")
+    .order("subject_name");
+  return data || [];
+}
+
+export async function createDeclaration(declaration: {
+  creator_id: string;
+  declaration_type: string;
+  subject_name?: string;
+  subject_platform?: string;
+  subject_profile_url?: string;
+  evidence_tier?: string;
+  evidence_urls?: string[];
+  evidence_metadata?: Record<string, unknown>;
+  badge_level: string;
+  status: string;
+  grace_deadline?: string;
+}) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("content_rights_declarations")
+    .insert(declaration)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateDeclaration(id: string, updates: Record<string, unknown>) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("content_rights_declarations")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function linkDeclarationToStory(storyId: string, declarationId: string) {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("story_rights_declarations")
+    .insert({ story_id: storyId, declaration_id: declarationId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function unlinkDeclarationFromStory(storyId: string, declarationId: string) {
+  const supabase = createClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("story_rights_declarations")
+    .delete()
+    .eq("story_id", storyId)
+    .eq("declaration_id", declarationId);
+  if (error) throw error;
+}
