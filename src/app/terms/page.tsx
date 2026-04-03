@@ -3,7 +3,7 @@ export default function TermsPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
       <h1 className="text-3xl font-bold mb-6">Terms of Service</h1>
       <div className="text-sm text-muted space-y-6 leading-relaxed">
-        <p>Last updated: April 2, 2026</p>
+        <p>Last updated: April 3, 2026</p>
 
         {/* 1. Acceptance of Terms */}
         <section className="space-y-3">
@@ -125,6 +125,32 @@ export default function TermsPage() {
               phishing links, or any material designed to damage or gain unauthorized access to systems.
             </li>
           </ol>
+          <p>
+            <strong>Permitted Adult Fiction Categories:</strong> Erovel permits a wide range of
+            fictional adult content, including taboo and incest-themed fiction, subject to the
+            following mandatory requirements:
+          </p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              All characters depicted in sexual or romantic contexts must be explicitly established
+              as eighteen (18) years of age or older within the content.
+            </li>
+            <li>
+              All content must be clearly presented and understood as fiction.
+            </li>
+            <li>
+              The Platform will automatically display a fiction and age disclaimer on all content
+              published under the Taboo category.
+            </li>
+            <li>
+              Creators who publish taboo content must accurately categorize it under the Taboo
+              category and apply appropriate tags to ensure readers can make informed choices.
+            </li>
+          </ol>
+          <p>
+            Violation of these requirements — particularly any implication that characters are
+            under 18 — will result in immediate content removal and account termination.
+          </p>
           <p>
             Creators must accurately tag and categorize their content using the Platform&apos;s content
             tagging system. Failure to properly tag content, including the omission of required
