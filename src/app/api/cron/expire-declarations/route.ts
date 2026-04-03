@@ -52,10 +52,13 @@ export async function GET(request: NextRequest) {
         .eq("story_id", link.story_id)
         .neq("declaration_id", declaration.id);
 
-      const hasApproved = (otherDeclarations || []).some(
-        (d: { declaration: { status: string } | null }) =>
-          d.declaration?.status === "approved"
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hasApproved = (otherDeclarations || []).some((d: any) => {
+        const decl = Array.isArray(d.declaration)
+          ? d.declaration[0]
+          : d.declaration;
+        return decl?.status === "approved";
+      });
 
       if (!hasApproved) {
         await supabase
