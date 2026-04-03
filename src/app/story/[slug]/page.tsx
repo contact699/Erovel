@@ -30,6 +30,7 @@ import { toast } from "@/components/ui/toast";
 import type { Story, Chapter, Comment } from "@/lib/types";
 import { ReportButton } from "@/components/ui/report-button";
 import { ShareButton } from "@/components/ui/share-button";
+import { RightsBadge } from "@/components/story/rights-badge";
 import {
   Eye,
   MessageCircle,
@@ -208,6 +209,9 @@ export default function StoryPage() {
             )}
             {story.category && (
               <Badge variant="outline">{story.category.name}</Badge>
+            )}
+            {story.badge_level && story.badge_level !== "none" && (
+              <RightsBadge badgeLevel={story.badge_level} size="md" />
             )}
           </div>
 
