@@ -28,31 +28,48 @@ export async function POST() {
       return NextResponse.json({ error: "Not configured" }, { status: 503 });
     }
 
-    // Get the latest verification session for this user
+    // Check if any session is already approved in our DB
+    const { data: approvedSessions } = await adminClient
+      .from("verification_sessions")
+      .select("veriff_session_id")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .limit(1);
+
+    if (approvedSessions && approvedSessions.length > 0) {
+      // Ensure profile is marked verified
+      await adminClient
+        .from("profiles")
+        .update({ is_verified: true })
+        .eq("id", user.id);
+      return NextResponse.json({ verified: true, status: "approved" });
+    }
+
+    // Get all non-terminal sessions to check with Veriff API
     const { data: sessions } = await adminClient
       .from("verification_sessions")
       .select("veriff_session_id, status")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .not("status", "in", '("declined","expired")')
+      .order("created_at", { ascending: false });
 
     if (!sessions || sessions.length === 0) {
       return NextResponse.json({ verified: false, status: "no_session" });
     }
 
-    const session = sessions[0];
     const apiKey = process.env.VERIFF_API_KEY;
-
     if (!apiKey) {
-      return NextResponse.json({ verified: false, status: session.status });
+      return NextResponse.json({ verified: false, status: sessions[0].status });
     }
 
-    // Query Veriff API for session status
-    const veriffRes = await fetch(`${VERIFF_API_URL}/sessions/${session.veriff_session_id}`, {
-      headers: { "X-AUTH-CLIENT": apiKey },
-    });
+    // Check each session with Veriff until we find an approved one
+    for (const session of sessions) {
+      const veriffRes = await fetch(`${VERIFF_API_URL}/sessions/${session.veriff_session_id}`, {
+        headers: { "X-AUTH-CLIENT": apiKey },
+      });
 
-    if (veriffRes.ok) {
+      if (!veriffRes.ok) continue;
+
       const veriffData = await veriffRes.json();
       const veriffStatus = veriffData.verification?.status || veriffData.status;
 
@@ -62,20 +79,17 @@ export async function POST() {
         .update({ status: veriffStatus, updated_at: new Date().toISOString() })
         .eq("veriff_session_id", session.veriff_session_id);
 
-      // If approved, mark profile as verified
       if (veriffStatus === "approved") {
         await adminClient
           .from("profiles")
           .update({ is_verified: true })
           .eq("id", user.id);
-
         return NextResponse.json({ verified: true, status: "approved" });
       }
-
-      return NextResponse.json({ verified: false, status: veriffStatus });
     }
 
-    return NextResponse.json({ verified: false, status: session.status });
+    // Return the latest session's status
+    return NextResponse.json({ verified: false, status: sessions[0].status });
   } catch (err) {
     console.error("[Veriff check] Error:", err);
     return NextResponse.json({ error: "Check failed" }, { status: 500 });

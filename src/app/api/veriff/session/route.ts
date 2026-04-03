@@ -38,6 +38,26 @@ export async function POST() {
       return NextResponse.json({ error: "Already verified" }, { status: 400 });
     }
 
+    // Check if there's already an approved session in verification_sessions
+    const adminClient = getAdminClient();
+    if (adminClient) {
+      const { data: approvedSessions } = await adminClient
+        .from("verification_sessions")
+        .select("veriff_session_id")
+        .eq("user_id", profile.id)
+        .eq("status", "approved")
+        .limit(1);
+
+      if (approvedSessions && approvedSessions.length > 0) {
+        // Profile wasn't marked verified but session is approved — fix it
+        await adminClient
+          .from("profiles")
+          .update({ is_verified: true })
+          .eq("id", profile.id);
+        return NextResponse.json({ error: "Already verified" }, { status: 400 });
+      }
+    }
+
     const apiKey = process.env.VERIFF_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Verification service not configured" }, { status: 503 });
@@ -72,9 +92,9 @@ export async function POST() {
     const session = veriffData.verification;
 
     // Store session in DB (use admin client to bypass RLS)
-    const adminClient = getAdminClient();
-    if (adminClient) {
-      await adminClient.from("verification_sessions").insert({
+    const storeClient = adminClient ?? getAdminClient();
+    if (storeClient) {
+      await storeClient.from("verification_sessions").insert({
         user_id: profile.id,
         veriff_session_id: session.id,
         status: session.status,
