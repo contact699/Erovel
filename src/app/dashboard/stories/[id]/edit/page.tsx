@@ -40,6 +40,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
+import { ContentRightsForm } from "@/components/story/content-rights-form";
 import { toast } from "@/components/ui/toast";
 
 interface ChapterDraft {
@@ -56,7 +57,7 @@ export default function EditStoryPage() {
   const params = useParams();
   const storyId = params.id as string;
   const router = useRouter();
-  useAuthStore(); // ensure auth state is hydrated
+  const { user } = useAuthStore(); // ensure auth state is hydrated
 
   const [loading, setLoading] = useState(true);
   const [storyData, setStoryData] = useState<Story | null>(null);
@@ -902,6 +903,12 @@ export default function EditStoryPage() {
                     </div>
                   )}
                 </div>
+
+                {storyId && user && (
+                  <div className="rounded-lg border border-border bg-surface p-3 space-y-3">
+                    <ContentRightsForm storyId={storyId} creatorId={user.id} />
+                  </div>
+                )}
               </div>
             </div>
 

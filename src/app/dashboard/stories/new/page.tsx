@@ -40,6 +40,7 @@ import {
 } from "@/lib/supabase/queries";
 import type { StoryFormat, ChatContent } from "@/lib/types";
 import type { JSONContent } from "@tiptap/react";
+import { ContentRightsForm } from "@/components/story/content-rights-form";
 import { toast } from "@/components/ui/toast";
 
 interface ChapterDraft {
@@ -745,6 +746,12 @@ export default function NewStoryPage() {
                     </div>
                   )}
                 </div>
+
+                {storyId && user && (
+                  <div className="rounded-lg border border-border bg-surface p-3 space-y-3">
+                    <ContentRightsForm storyId={storyId} creatorId={user.id} />
+                  </div>
+                )}
               </div>
             </div>
 
