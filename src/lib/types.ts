@@ -10,6 +10,10 @@ export type PayoutMethod = "paxum" | "crypto";
 export type PayoutStatus = "pending" | "processing" | "completed" | "failed";
 export type MediaType = "image" | "gif" | "video";
 export type ReportStatus = "pending" | "reviewed" | "resolved" | "dismissed";
+export type DeclarationType = "real_person_active" | "real_person_prior" | "ai_generated" | "fictional";
+export type EvidenceTier = "video" | "screenshot" | "signed_consent" | "prior_declaration";
+export type BadgeLevel = "verified_permission" | "permission_documented" | "ai_generated" | "none";
+export type DeclarationStatus = "pending" | "approved" | "rejected" | "more_info_requested" | "expired";
 
 export interface Profile {
   id: string;
@@ -50,6 +54,8 @@ export interface Story {
   tip_total: number;
   comment_count: number;
   word_count: number;
+  badge_level?: BadgeLevel;
+  rights_declarations?: ContentRightsDeclaration[];
   created_at: string;
   updated_at: string;
 }
@@ -197,6 +203,35 @@ export interface Report {
   reason: string;
   status: ReportStatus;
   created_at: string;
+}
+
+export interface ContentRightsDeclaration {
+  id: string;
+  creator_id: string;
+  creator?: Profile;
+  declaration_type: DeclarationType;
+  subject_name: string | null;
+  subject_platform: string | null;
+  subject_profile_url: string | null;
+  evidence_tier: EvidenceTier | null;
+  evidence_urls: string[] | null;
+  evidence_metadata: Record<string, unknown> | null;
+  badge_level: BadgeLevel;
+  status: DeclarationStatus;
+  admin_reviewer_id: string | null;
+  admin_notes: string | null;
+  reviewed_at: string | null;
+  grace_deadline: string | null;
+  created_at: string;
+  updated_at: string;
+  stories?: Story[];
+  story_count?: number;
+}
+
+export interface StoryRightsDeclaration {
+  story_id: string;
+  declaration_id: string;
+  declaration?: ContentRightsDeclaration;
 }
 
 export interface EarningsSummary {

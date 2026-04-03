@@ -47,3 +47,35 @@ export const CHAT_BUBBLE_COLORS = [
   "#06B6D4", // cyan
   "#F97316", // orange
 ];
+
+export const SUBJECT_PLATFORMS = [
+  { value: "onlyfans", label: "OnlyFans" },
+  { value: "instagram", label: "Instagram" },
+  { value: "twitter", label: "Twitter / X" },
+  { value: "reddit", label: "Reddit" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "other", label: "Other" },
+];
+
+export const DECLARATION_TYPE_LABELS: Record<string, string> = {
+  real_person_active: "Real person (active permission)",
+  real_person_prior: "Real person (prior consent)",
+  ai_generated: "AI-generated imagery",
+  fictional: "Fully fictional",
+};
+
+export const EVIDENCE_TIER_LABELS: Record<string, string> = {
+  video: "Screen-recorded video",
+  screenshot: "Screenshots",
+  signed_consent: "Signed consent form",
+  prior_declaration: "Prior consent declaration",
+};
+
+export const BADGE_LEVEL_LABELS: Record<string, string> = {
+  verified_permission: "Verified Permission",
+  permission_documented: "Permission Documented",
+  ai_generated: "AI-Generated Imagery",
+  none: "",
+};
+
+export const GRACE_PERIOD_DAYS = 14;
