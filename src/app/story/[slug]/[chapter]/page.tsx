@@ -46,6 +46,7 @@ export default function ChapterPage() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chapter, setChapter] = useState<(Chapter & { content?: { content_json: unknown } | null }) | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -65,55 +66,30 @@ export default function ChapterPage() {
   const FREE_PREVIEW_CHAPTERS = 1;
   const isGatedChapter = story?.is_gated && chapterNum > FREE_PREVIEW_CHAPTERS && !unlocked;
 
-  // Fetch story, chapters, and chapter content
+  // Effect 1: Fetch story metadata + chapters (no content)
   useEffect(() => {
     let cancelled = false;
-    async function fetchData() {
+    async function fetchMetadata() {
       try {
         const storyData = await getStoryBySlug(slug);
+        if (cancelled || !storyData) return;
+        setStory(storyData as Story);
+
+        const [chaptersData, needsPassword] = await Promise.all([
+          getChapters(storyData.id),
+          storyHasPassword(storyData.id),
+        ]);
         if (cancelled) return;
-        if (storyData) {
-          setStory(storyData as Story);
+        setChapters(chaptersData as Chapter[]);
+        setHasPassword(needsPassword);
 
-          // Build headers for content fetch, including password token if available
-          const contentHeaders: Record<string, string> = { "Content-Type": "application/json" };
-          const storedPassword = sessionStorage.getItem(`story-pw-${storyData.id}`);
-          if (storedPassword) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(storedPassword);
-            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-            contentHeaders["x-story-password"] = hash;
-          }
-
-          const [chaptersData, chapterRes, needsPassword] = await Promise.all([
-            getChapters(storyData.id),
-            fetch("/api/chapters/content", {
-              method: "POST",
-              headers: contentHeaders,
-              body: JSON.stringify({ storyId: storyData.id, chapterNumber: chapterNum }),
-            }),
-            storyHasPassword(storyData.id),
-          ]);
-          const chapterData = chapterRes.ok ? await chapterRes.json() : null;
-          if (cancelled) return;
-          setChapters(chaptersData as Chapter[]);
-          setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
-          setHasPassword(needsPassword);
-          setError(null);
-
-          // Record story view for all visitors (analytics)
-          if (chapterData) {
-            recordStoryView(storyData.id, chapterData.id, user?.id || null).catch(() => {});
-          }
-
-          // Record reading and update bookmark progress if user is logged in
-          if (user && chapterData) {
-            recordReading(user.id, storyData.id, chapterData.id).catch(() => {});
-            updateBookmarkProgress(user.id, storyData.id, chapterData.id).catch(() => {});
-          }
+        // Check sessionStorage for existing password
+        if (needsPassword) {
+          const stored = sessionStorage.getItem(`story-pw-${storyData.id}`);
+          if (stored) setPasswordVerified(true);
         }
+
+        setError(null);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load chapter. Please try again.");
@@ -125,16 +101,55 @@ export default function ChapterPage() {
       }
     }
     setLoading(true);
-    fetchData();
+    fetchMetadata();
     return () => { cancelled = true; };
-  }, [slug, chapterNum, user, retryCount]);
+  }, [slug, chapterNum, retryCount]);
 
+  // Effect 2: Fetch chapter content only when allowed (no password, or password verified)
   useEffect(() => {
-    if (hasPassword && story) {
-      const stored = sessionStorage.getItem(`story-pw-${story.id}`);
-      if (stored) setPasswordVerified(true);
+    if (!story || (hasPassword && !passwordVerified)) return;
+    let cancelled = false;
+    setContentLoading(true);
+    async function fetchContent() {
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        const storedPw = sessionStorage.getItem(`story-pw-${story!.id}`);
+        if (storedPw) {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(storedPw);
+          const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          headers["x-story-password"] = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+
+        const res = await fetch("/api/chapters/content", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ storyId: story!.id, chapterNumber: chapterNum }),
+        });
+        const chapterData = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
+
+        // Record story view for all visitors (analytics)
+        if (chapterData) {
+          recordStoryView(story!.id, chapterData.id, user?.id || null).catch(() => {});
+        }
+
+        // Record reading and update bookmark progress if user is logged in
+        if (user && chapterData) {
+          recordReading(user.id, story!.id, chapterData.id).catch(() => {});
+          updateBookmarkProgress(user.id, story!.id, chapterData.id).catch(() => {});
+        }
+      } catch {
+        // Content fetch failed silently
+      } finally {
+        if (!cancelled) setContentLoading(false);
+      }
     }
-  }, [hasPassword, story]);
+    fetchContent();
+    return () => { cancelled = true; };
+  }, [story, chapterNum, hasPassword, passwordVerified, user]);
 
   const isChat = story?.format === "chat";
 
@@ -193,20 +208,77 @@ export default function ChapterPage() {
     );
   }
 
-  if (!story || !chapter) {
+  if (!story) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold">Chapter not found</h1>
+          <h1 className="text-2xl font-bold">Story not found</h1>
           <p className="text-muted">
-            This chapter does not exist or has not been published yet.
+            The story you are looking for does not exist.
           </p>
-          <Link href={story ? `/story/${story.slug}` : "/"}>
-            <Button variant="secondary">
-              {story ? "Back to Story" : "Back to Home"}
-            </Button>
+          <Link href="/">
+            <Button variant="secondary">Back to Home</Button>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // Show password gate before loading any content
+  if (hasPassword && !passwordVerified) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+            <Link
+              href={`/story/${story.slug}`}
+              className="text-muted hover:text-foreground transition-colors shrink-0"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted truncate">{story.title}</p>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
+          <Lock size={40} className="text-muted mx-auto" />
+          <h2 className="text-xl font-bold">This story is password protected</h2>
+          <p className="text-sm text-muted">Enter the password to access this content.</p>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setPasswordError("");
+            try {
+              const res = await fetch("/api/stories/verify-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ storyId: story.id, password: passwordInput }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                setPasswordVerified(true);
+                sessionStorage.setItem(`story-pw-${story.id}`, passwordInput);
+              } else {
+                setPasswordError("Incorrect password");
+              }
+            } catch {
+              setPasswordError("Failed to verify password");
+            }
+          }} className="space-y-3">
+            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+            {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
+            <Button type="submit" className="w-full">Unlock</Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Content is still loading after password verification
+  if (contentLoading || !chapter) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -250,38 +322,6 @@ export default function ChapterPage() {
         </div>
       </div>
 
-      {hasPassword && !passwordVerified ? (
-        <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
-          <Lock size={40} className="text-muted mx-auto" />
-          <h2 className="text-xl font-bold">This story is password protected</h2>
-          <p className="text-sm text-muted">Enter the password to access this content.</p>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            setPasswordError("");
-            try {
-              const res = await fetch("/api/stories/verify-password", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ storyId: story.id, password: passwordInput }),
-              });
-              const data = await res.json();
-              if (data.success) {
-                setPasswordVerified(true);
-                sessionStorage.setItem(`story-pw-${story.id}`, passwordInput);
-              } else {
-                setPasswordError("Incorrect password");
-              }
-            } catch {
-              setPasswordError("Failed to verify password");
-            }
-          }} className="space-y-3">
-            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
-            {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
-            <Button type="submit" className="w-full">Unlock</Button>
-          </form>
-        </div>
-      ) : (
-      <>
       {/* ---- Chapter header ---- */}
       <div className="max-w-3xl mx-auto px-4 pt-10 pb-4 text-center">
         <p className="text-sm text-accent font-medium uppercase tracking-wider">
@@ -489,9 +529,6 @@ export default function ChapterPage() {
           </div>
         </div>
       </div>
-
-      </>
-      )}
 
       {/* ---- Chapter sidebar / drawer ---- */}
       {sidebarOpen && (
