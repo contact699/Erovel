@@ -65,7 +65,7 @@ export default function ImportPage() {
   const [urlsText, setUrlsText] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
   const [storyDescription, setStoryDescription] = useState("");
-  const [category, setCategory] = useState("other");
+  const [category, setCategory] = useState("mf");
   const [format, setFormat] = useState<StoryFormat>("gallery");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
@@ -534,16 +534,23 @@ export default function ImportPage() {
                 label="Category"
                 id="import-category"
                 options={[
-                  { value: "other", label: "Other" },
-                  { value: "romance", label: "Romance" },
-                  { value: "fantasy", label: "Fantasy" },
-                  { value: "bdsm", label: "BDSM" },
-                  { value: "lesbian", label: "Lesbian" },
-                  { value: "gay", label: "Gay" },
+                  { value: "mf", label: "M/F" },
+                  { value: "family", label: "Family" },
+                  { value: "cheating", label: "Cheating" },
+                  { value: "hotwife", label: "Hotwife" },
+                  { value: "cuckold", label: "Cuckold" },
+                  { value: "mff", label: "M/F/F" },
+                  { value: "mmf", label: "M/M/F" },
                   { value: "group", label: "Group" },
-                  { value: "mature", label: "Mature" },
-                  { value: "taboo", label: "Taboo" },
+                  { value: "lesbian", label: "F/F" },
+                  { value: "gay", label: "M/M" },
+                  { value: "trans", label: "Trans" },
+                  { value: "nonbinary", label: "Non-Binary" },
+                  { value: "cnc", label: "CNC" },
+                  { value: "bdsm", label: "BDSM" },
                   { value: "fetish", label: "Fetish" },
+                  { value: "scifi", label: "Sci-Fi & Fantasy" },
+                  { value: "other", label: "Other" },
                 ]}
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}

@@ -403,7 +403,7 @@ export default function StoryPage() {
         </section>
 
         {/* ---- Taboo fiction disclaimer ---- */}
-        {story.category?.slug === "taboo" && (
+        {story.category?.slug === "family" && (
           <div className="text-xs text-muted text-center py-2 px-4 bg-surface border border-border rounded-lg">
             This is a work of fiction. All characters depicted are 18 years of age or older.
           </div>
