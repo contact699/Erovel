@@ -1,7 +1,7 @@
 // Core domain types for Erovel
 
 export type UserRole = "reader" | "creator" | "admin";
-export type StoryFormat = "prose" | "chat";
+export type StoryFormat = "prose" | "chat" | "gallery";
 export type StoryStatus = "draft" | "published" | "scheduled";
 export type ChapterStatus = "draft" | "published" | "scheduled";
 export type SubscriptionTargetType = "creator" | "story";
@@ -48,6 +48,8 @@ export interface Story {
   status: StoryStatus;
   is_gated: boolean;
   price: number;
+  visibility: "public" | "unlisted";
+  password_hash?: string | null;
   chapter_count: number;
   published_chapter_count: number;
   view_count: number;

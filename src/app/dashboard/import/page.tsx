@@ -66,7 +66,7 @@ export default function ImportPage() {
   const [storyTitle, setStoryTitle] = useState("");
   const [storyDescription, setStoryDescription] = useState("");
   const [category, setCategory] = useState("other");
-  const [format, setFormat] = useState<StoryFormat>("chat");
+  const [format, setFormat] = useState<StoryFormat>("gallery");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
 
@@ -293,7 +293,7 @@ export default function ImportPage() {
   function buildChapterContent(images: ImportMedia[]) {
     const selected = images.filter((img) => img.selected);
 
-    if (format === "chat") {
+    if (format === "chat" || format === "gallery") {
       const characters = [
         { id: "char-1", name: "Character 1", color: "#3B82F6", alignment: "left" as const },
         { id: "char-2", name: "Character 2", color: "#10B981", alignment: "right" as const },
@@ -523,6 +523,7 @@ export default function ImportPage() {
                 label="Format"
                 id="import-format"
                 options={[
+                  { value: "gallery", label: "Gallery \u2014 Images displayed vertically, no chat bubbles" },
                   { value: "chat", label: "Sext Story \u2014 Texting style with images" },
                   { value: "prose", label: "Illustrated Story \u2014 Story with images and GIFs" },
                 ]}
@@ -819,7 +820,7 @@ export default function ImportPage() {
                   {storyTitle || "Untitled Story"} &middot;{" "}
                   {chapters.filter((ch) => !ch.error && ch.images.some((img) => img.selected)).length}{" "}
                   chapters &middot; {totalSelectedImages()} images &middot;{" "}
-                  {format === "prose" ? "Illustrated Story" : "Sext Story"}
+                  {format === "gallery" ? "Gallery" : format === "prose" ? "Illustrated Story" : "Sext Story"}
                 </p>
               </div>
             </div>

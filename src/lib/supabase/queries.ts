@@ -32,7 +32,8 @@ export async function getPublishedStories(options?: {
   let query = supabase
     .from("stories")
     .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified, subscription_price)")
-    .eq("status", "published");
+    .eq("status", "published")
+    .eq("visibility", "public");
 
   if (options?.category && options.category !== "all") {
     query = query.eq("category_id", options.category);
@@ -104,12 +105,14 @@ export async function createStory(story: {
   title: string;
   slug: string;
   description: string;
-  format: "prose" | "chat";
+  format: "prose" | "chat" | "gallery";
   category_id: string;
   status: "draft" | "published";
   is_gated: boolean;
   price?: number;
   cover_image_url?: string;
+  visibility?: "public" | "unlisted";
+  password_hash?: string | null;
 }) {
   const supabase = createClient();
   if (!supabase) return null;
@@ -350,6 +353,7 @@ export async function searchStories(query: string) {
     .from("stories")
     .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
     .eq("status", "published")
+    .eq("visibility", "public")
     .textSearch("fts", query)
     .limit(20);
   return data || [];

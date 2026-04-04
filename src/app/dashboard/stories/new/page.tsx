@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   BookOpen,
   MessageCircle,
+  Image,
   Plus,
   Trash2,
   GripVertical,
@@ -536,6 +537,29 @@ export default function NewStoryPage() {
                     <p className="text-sm font-medium">Sext Story</p>
                     <p className="text-xs text-muted">
                       Texting/messaging style with images
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormat("gallery")}
+                  className={cn(
+                    "flex-1 flex items-center gap-3 rounded-lg border-2 p-4 transition-all cursor-pointer",
+                    format === "gallery"
+                      ? "border-accent bg-accent/5"
+                      : "border-border hover:border-accent/30"
+                  )}
+                >
+                  <Image
+                    className={cn(
+                      "h-6 w-6",
+                      format === "gallery" ? "text-accent" : "text-muted"
+                    )}
+                  />
+                  <div className="text-left">
+                    <p className="text-sm font-medium">Gallery</p>
+                    <p className="text-xs text-muted">
+                      Images displayed vertically
                     </p>
                   </div>
                 </button>

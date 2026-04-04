@@ -182,11 +182,16 @@ export default function StoryPage() {
 
           {/* Format + gated badges */}
           <div className="flex items-center gap-2">
-            <Badge variant={isChat ? "accent" : "default"}>
-              {isChat ? (
+            <Badge variant={story.format === "chat" ? "accent" : "default"}>
+              {story.format === "chat" ? (
                 <>
                   <MessageSquare size={12} className="mr-1 inline" />
                   Sext Story
+                </>
+              ) : story.format === "gallery" ? (
+                <>
+                  <BookOpen size={12} className="mr-1 inline" />
+                  Gallery
                 </>
               ) : (
                 <>
