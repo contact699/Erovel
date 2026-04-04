@@ -91,6 +91,7 @@ export default function EditStoryPage() {
   const [storyPrice, setStoryPrice] = useState(0);
   const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
   const [storyPassword, setStoryPassword] = useState("");
+  const [removePassword, setRemovePassword] = useState(false);
   const [, setCoverImageUrl] = useState<string | null>(null);
 
   // Chapters
@@ -316,7 +317,9 @@ export default function EditStoryPage() {
         status: storyData?.status || "draft",
         visibility,
       };
-      if (storyPassword) {
+      if (removePassword) {
+        storyUpdates.password_hash = null;
+      } else if (storyPassword) {
         storyUpdates.password_hash = await hashPassword(storyPassword);
       } else if (visibility === "public") {
         storyUpdates.password_hash = null;
@@ -456,7 +459,9 @@ export default function EditStoryPage() {
         status: "published",
         visibility,
       };
-      if (storyPassword) {
+      if (removePassword) {
+        publishUpdates.password_hash = null;
+      } else if (storyPassword) {
         publishUpdates.password_hash = await hashPassword(storyPassword);
       } else if (visibility === "public") {
         publishUpdates.password_hash = null;
@@ -809,8 +814,18 @@ export default function EditStoryPage() {
             </div>
 
             {visibility === "unlisted" && (
-              <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty to keep current password"
-                value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
+              <div className="space-y-2">
+                <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty to keep current password"
+                  value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
+                {storyData?.password_hash && !removePassword && (
+                  <button type="button" onClick={() => setRemovePassword(true)} className="text-xs text-danger hover:underline cursor-pointer">
+                    Remove existing password
+                  </button>
+                )}
+                {removePassword && (
+                  <p className="text-xs text-success">Password will be removed on save.</p>
+                )}
+              </div>
             )}
 
             {/* Cover image */}

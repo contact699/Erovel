@@ -73,7 +73,7 @@ export function StoryCard({ story, variant = "default" }: StoryCardProps) {
           )}
           <div className="absolute top-2 right-2 flex gap-1.5">
             <Badge variant={isChat ? "accent" : "default"}>
-              {isChat ? "Sext" : "Illustrated"}
+              {isChat ? "Sext" : story.format === "gallery" ? "Gallery" : "Illustrated"}
             </Badge>
             {story.is_gated && (
               <Badge variant="accent">

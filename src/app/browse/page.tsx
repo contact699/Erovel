@@ -30,7 +30,7 @@ function BrowseContent() {
 
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [formatFilter, setFormatFilter] = useState<string>(
-    initialFormat === "prose" || initialFormat === "chat" ? initialFormat : "all"
+    initialFormat === "prose" || initialFormat === "chat" || initialFormat === "gallery" ? initialFormat : "all"
   );
   const [sort, setSort] = useState<SortOption>(
     isValidSort(initialSort) ? initialSort : "trending"
@@ -98,6 +98,7 @@ function BrowseContent() {
     { value: "all", label: "All Formats" },
     { value: "prose", label: "Illustrated Story" },
     { value: "chat", label: "Sext Story" },
+    { value: "gallery", label: "Gallery" },
   ];
 
   const sortOptions = [

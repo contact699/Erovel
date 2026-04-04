@@ -32,6 +32,7 @@ export default function CategoryPage() {
     { value: "all", label: "All Formats" },
     { value: "prose", label: "Illustrated Story" },
     { value: "chat", label: "Sext Story" },
+    { value: "gallery", label: "Gallery" },
   ];
 
   const sortOptions = [
