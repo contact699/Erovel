@@ -44,6 +44,14 @@ import type { JSONContent } from "@tiptap/react";
 import { ContentRightsForm } from "@/components/story/content-rights-form";
 import { toast } from "@/components/ui/toast";
 
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 interface ChapterDraft {
   id: string;
   title: string;
@@ -81,6 +89,8 @@ export default function EditStoryPage() {
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
+  const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
+  const [storyPassword, setStoryPassword] = useState("");
   const [, setCoverImageUrl] = useState<string | null>(null);
 
   // Chapters
@@ -121,6 +131,8 @@ export default function EditStoryPage() {
       setFormat(story.format as StoryFormat);
       setIsGated(story.is_gated);
       setStoryPrice(story.price || 0);
+      setVisibility(story.visibility || "public");
+      setStoryPassword("");
       setCoverImageUrl(story.cover_image_url);
 
       // Fetch tags for this story
@@ -294,7 +306,7 @@ export default function EditStoryPage() {
     setSaveSuccess(false);
     try {
       // Update story metadata
-      await updateStory(storyId, {
+      const storyUpdates: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim(),
         category_id: categoryId || null,
@@ -302,7 +314,14 @@ export default function EditStoryPage() {
         is_gated: isGated,
         price: isGated ? storyPrice : 0,
         status: storyData?.status || "draft",
-      });
+        visibility,
+      };
+      if (storyPassword) {
+        storyUpdates.password_hash = await hashPassword(storyPassword);
+      } else if (visibility === "public") {
+        storyUpdates.password_hash = null;
+      }
+      await updateStory(storyId, storyUpdates);
 
       const scheduleDates = computeScheduleDates();
 
@@ -427,7 +446,7 @@ export default function EditStoryPage() {
       await saveStoryTags(storyId, tags);
 
       // Update story to published
-      await updateStory(storyId, {
+      const publishUpdates: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim(),
         category_id: categoryId || null,
@@ -435,7 +454,14 @@ export default function EditStoryPage() {
         is_gated: isGated,
         price: isGated ? storyPrice : 0,
         status: "published",
-      });
+        visibility,
+      };
+      if (storyPassword) {
+        publishUpdates.password_hash = await hashPassword(storyPassword);
+      } else if (visibility === "public") {
+        publishUpdates.password_hash = null;
+      }
+      await updateStory(storyId, publishUpdates);
 
       toast("success", "Story published!");
       router.push("/dashboard");
@@ -769,6 +795,23 @@ export default function EditStoryPage() {
                 </div>
               )}
             </div>
+
+            {/* Unlisted toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Unlisted</p>
+                <p className="text-xs text-muted">Story won&apos;t appear in browse or search. Only accessible via direct link.</p>
+              </div>
+              <button type="button" onClick={() => setVisibility(v => v === "public" ? "unlisted" : "public")}
+                className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer ${visibility === "unlisted" ? "bg-accent" : "bg-border"}`}>
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${visibility === "unlisted" ? "translate-x-5" : ""}`} />
+              </button>
+            </div>
+
+            {visibility === "unlisted" && (
+              <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty to keep current password"
+                value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
+            )}
 
             {/* Cover image */}
             <div className="space-y-1.5">

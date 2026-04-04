@@ -45,6 +45,14 @@ import type { JSONContent } from "@tiptap/react";
 import { ContentRightsForm } from "@/components/story/content-rights-form";
 import { toast } from "@/components/ui/toast";
 
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 interface ChapterDraft {
   id: string;
   dbId?: string; // Supabase chapter ID once persisted
@@ -72,6 +80,8 @@ export default function NewStoryPage() {
   const [tagInput, setTagInput] = useState("");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
+  const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
+  const [storyPassword, setStoryPassword] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
 
   // DB-persisted story ID (set after first save)
@@ -205,6 +215,8 @@ export default function NewStoryPage() {
         is_gated: isGated,
         price: isGated ? storyPrice : 0,
         cover_image_url: coverImageUrl || undefined,
+        visibility,
+        password_hash: storyPassword ? await hashPassword(storyPassword) : null,
       });
       if (!story) throw new Error("Failed to create story");
 
@@ -644,6 +656,23 @@ export default function NewStoryPage() {
                 />
               )}
             </div>
+
+            {/* Unlisted toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Unlisted</p>
+                <p className="text-xs text-muted">Story won&apos;t appear in browse or search. Only accessible via direct link.</p>
+              </div>
+              <button type="button" onClick={() => setVisibility(v => v === "public" ? "unlisted" : "public")}
+                className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer ${visibility === "unlisted" ? "bg-accent" : "bg-border"}`}>
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${visibility === "unlisted" ? "translate-x-5" : ""}`} />
+              </button>
+            </div>
+
+            {visibility === "unlisted" && (
+              <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty for no password"
+                value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
+            )}
 
             {/* Cover image */}
             <div className="space-y-1.5">

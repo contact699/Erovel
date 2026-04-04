@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TipButton } from "@/components/monetization/tip-button";
 import { SubscribeButton } from "@/components/monetization/subscribe-button";
@@ -50,6 +51,9 @@ export default function ChapterPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const user = useAuthStore((s) => s.user);
   const isContentUnlocked = useSubscriptionStore((s) => s.isContentUnlocked);
@@ -107,6 +111,13 @@ export default function ChapterPage() {
     fetchData();
     return () => { cancelled = true; };
   }, [slug, chapterNum, user, retryCount]);
+
+  useEffect(() => {
+    if (story?.password_hash) {
+      const stored = sessionStorage.getItem(`story-access-${story.id}`);
+      if (stored === "true") setPasswordVerified(true);
+    }
+  }, [story]);
 
   const isChat = story?.format === "chat";
 
@@ -222,6 +233,38 @@ export default function ChapterPage() {
         </div>
       </div>
 
+      {story.password_hash && !passwordVerified ? (
+        <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
+          <Lock size={40} className="text-muted mx-auto" />
+          <h2 className="text-xl font-bold">This story is password protected</h2>
+          <p className="text-sm text-muted">Enter the password to access this content.</p>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setPasswordError("");
+            try {
+              const res = await fetch("/api/stories/verify-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ storyId: story.id, password: passwordInput }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                setPasswordVerified(true);
+                sessionStorage.setItem(`story-access-${story.id}`, "true");
+              } else {
+                setPasswordError("Incorrect password");
+              }
+            } catch {
+              setPasswordError("Failed to verify password");
+            }
+          }} className="space-y-3">
+            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+            {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
+            <Button type="submit" className="w-full">Unlock</Button>
+          </form>
+        </div>
+      ) : (
+      <>
       {/* ---- Chapter header ---- */}
       <div className="max-w-3xl mx-auto px-4 pt-10 pb-4 text-center">
         <p className="text-sm text-accent font-medium uppercase tracking-wider">
@@ -429,6 +472,9 @@ export default function ChapterPage() {
           </div>
         </div>
       </div>
+
+      </>
+      )}
 
       {/* ---- Chapter sidebar / drawer ---- */}
       {sidebarOpen && (

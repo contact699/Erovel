@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FollowButton } from "@/components/monetization/follow-button";
 import { TipButton } from "@/components/monetization/tip-button";
@@ -75,6 +76,9 @@ export default function StoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -107,6 +111,13 @@ export default function StoryPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (story?.password_hash) {
+      const stored = sessionStorage.getItem(`story-access-${story.id}`);
+      if (stored === "true") setPasswordVerified(true);
+    }
+  }, [story]);
 
   if (loading) {
     return (
@@ -163,6 +174,37 @@ export default function StoryPage() {
         </div>
       </div>
 
+      {story.password_hash && !passwordVerified ? (
+        <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
+          <Lock size={40} className="text-muted mx-auto" />
+          <h2 className="text-xl font-bold">This story is password protected</h2>
+          <p className="text-sm text-muted">Enter the password to access this content.</p>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setPasswordError("");
+            try {
+              const res = await fetch("/api/stories/verify-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ storyId: story.id, password: passwordInput }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                setPasswordVerified(true);
+                sessionStorage.setItem(`story-access-${story.id}`, "true");
+              } else {
+                setPasswordError("Incorrect password");
+              }
+            } catch {
+              setPasswordError("Failed to verify password");
+            }
+          }} className="space-y-3">
+            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+            {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
+            <Button type="submit" className="w-full">Unlock</Button>
+          </form>
+        </div>
+      ) : (
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         {/* ---- Hero section ---- */}
         <section className="space-y-6">
@@ -565,6 +607,7 @@ export default function StoryPage() {
           </div>
         </section>
       </main>
+      )}
     </div>
   );
 }
