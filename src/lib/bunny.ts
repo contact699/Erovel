@@ -1,5 +1,7 @@
 // BunnyCDN upload utility — server-side only (API routes)
 
+import crypto from "crypto";
+
 const STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE!;
 const STORAGE_PASSWORD = process.env.BUNNY_STORAGE_PASSWORD!;
 const STORAGE_HOSTNAME = process.env.BUNNY_STORAGE_HOSTNAME!;
@@ -58,4 +60,33 @@ export async function deleteFromBunny(cdnPath: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     throw new Error(`BunnyCDN delete failed: ${response.status}`);
   }
+}
+
+/**
+ * Generate a signed BunnyCDN URL with token authentication.
+ * Requires BUNNY_CDN_TOKEN to be set (configured in BunnyCDN pull zone settings).
+ * If no token is configured, returns the URL unsigned (graceful degradation).
+ */
+export function signCdnUrl(url: string, expirySeconds: number = 14400): string {
+  const token = process.env.BUNNY_CDN_TOKEN;
+  if (!token) return url; // Graceful degradation — no token = unsigned URLs
+
+  const cdnUrl = process.env.NEXT_PUBLIC_BUNNY_CDN_URL;
+  if (!cdnUrl || !url.startsWith(cdnUrl)) return url; // Not a CDN URL
+
+  const path = url.replace(cdnUrl, "");
+  const expires = Math.floor(Date.now() / 1000) + expirySeconds;
+
+  // BunnyCDN token auth: base64url(sha256(token + path + expires))
+  const hashableBase = token + path + expires;
+  const hash = crypto
+    .createHash("sha256")
+    .update(hashableBase)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}token=${hash}&expires=${expires}`;
 }

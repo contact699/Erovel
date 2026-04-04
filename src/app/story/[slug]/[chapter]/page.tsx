@@ -15,7 +15,6 @@ import { ReportButton } from "@/components/ui/report-button";
 import { ShareButton } from "@/components/ui/share-button";
 import {
   getStoryBySlug,
-  getChapterWithContent,
   getChapters,
   recordReading,
   recordStoryView,
@@ -68,10 +67,15 @@ export default function ChapterPage() {
         if (cancelled) return;
         if (storyData) {
           setStory(storyData as Story);
-          const [chaptersData, chapterData] = await Promise.all([
+          const [chaptersData, chapterRes] = await Promise.all([
             getChapters(storyData.id),
-            getChapterWithContent(storyData.id, chapterNum),
+            fetch("/api/chapters/content", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ storyId: storyData.id, chapterNumber: chapterNum }),
+            }),
           ]);
+          const chapterData = chapterRes.ok ? await chapterRes.json() : null;
           if (cancelled) return;
           setChapters(chaptersData as Chapter[]);
           setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
