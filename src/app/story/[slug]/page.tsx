@@ -26,6 +26,7 @@ import {
   getComments,
   addComment,
   createNotification,
+  storyHasPassword,
 } from "@/lib/supabase/queries";
 import { toast } from "@/components/ui/toast";
 import type { Story, Chapter, Comment } from "@/lib/types";
@@ -76,6 +77,7 @@ export default function StoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
   const [passwordVerified, setPasswordVerified] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -94,12 +96,14 @@ export default function StoryPage() {
       const storyData = await getStoryBySlug(slug);
       if (storyData) {
         setStory(storyData as Story);
-        const [chaptersData, commentsData] = await Promise.all([
+        const [chaptersData, commentsData, needsPassword] = await Promise.all([
           getChapters(storyData.id),
           getComments(storyData.id),
+          storyHasPassword(storyData.id),
         ]);
         setChapters(chaptersData as Chapter[]);
         setComments(commentsData as Comment[]);
+        setHasPassword(needsPassword);
       }
     } catch {
       setError("Failed to load story");
@@ -113,11 +117,11 @@ export default function StoryPage() {
   }, [fetchData]);
 
   useEffect(() => {
-    if (story?.password_hash) {
-      const stored = sessionStorage.getItem(`story-access-${story.id}`);
-      if (stored === "true") setPasswordVerified(true);
+    if (hasPassword && story) {
+      const stored = sessionStorage.getItem(`story-pw-${story.id}`);
+      if (stored) setPasswordVerified(true);
     }
-  }, [story]);
+  }, [hasPassword, story]);
 
   if (loading) {
     return (
@@ -174,7 +178,7 @@ export default function StoryPage() {
         </div>
       </div>
 
-      {story.password_hash && !passwordVerified ? (
+      {hasPassword && !passwordVerified ? (
         <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
           <Lock size={40} className="text-muted mx-auto" />
           <h2 className="text-xl font-bold">This story is password protected</h2>
@@ -191,7 +195,7 @@ export default function StoryPage() {
               const data = await res.json();
               if (data.success) {
                 setPasswordVerified(true);
-                sessionStorage.setItem(`story-access-${story.id}`, "true");
+                sessionStorage.setItem(`story-pw-${story.id}`, passwordInput);
               } else {
                 setPasswordError("Incorrect password");
               }

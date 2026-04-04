@@ -21,6 +21,7 @@ import {
   recordReading,
   recordStoryView,
   updateBookmarkProgress,
+  storyHasPassword,
 } from "@/lib/supabase/queries";
 import type { Story, Chapter, ChatContent } from "@/lib/types";
 import {
@@ -51,6 +52,7 @@ export default function ChapterPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
   const [passwordVerified, setPasswordVerified] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -72,18 +74,33 @@ export default function ChapterPage() {
         if (cancelled) return;
         if (storyData) {
           setStory(storyData as Story);
-          const [chaptersData, chapterRes] = await Promise.all([
+
+          // Build headers for content fetch, including password token if available
+          const contentHeaders: Record<string, string> = { "Content-Type": "application/json" };
+          const storedPassword = sessionStorage.getItem(`story-pw-${storyData.id}`);
+          if (storedPassword) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(storedPassword);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+            contentHeaders["x-story-password"] = hash;
+          }
+
+          const [chaptersData, chapterRes, needsPassword] = await Promise.all([
             getChapters(storyData.id),
             fetch("/api/chapters/content", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: contentHeaders,
               body: JSON.stringify({ storyId: storyData.id, chapterNumber: chapterNum }),
             }),
+            storyHasPassword(storyData.id),
           ]);
           const chapterData = chapterRes.ok ? await chapterRes.json() : null;
           if (cancelled) return;
           setChapters(chaptersData as Chapter[]);
           setChapter(chapterData as (Chapter & { content?: { content_json: unknown } | null }) | null);
+          setHasPassword(needsPassword);
           setError(null);
 
           // Record story view for all visitors (analytics)
@@ -113,11 +130,11 @@ export default function ChapterPage() {
   }, [slug, chapterNum, user, retryCount]);
 
   useEffect(() => {
-    if (story?.password_hash) {
-      const stored = sessionStorage.getItem(`story-access-${story.id}`);
-      if (stored === "true") setPasswordVerified(true);
+    if (hasPassword && story) {
+      const stored = sessionStorage.getItem(`story-pw-${story.id}`);
+      if (stored) setPasswordVerified(true);
     }
-  }, [story]);
+  }, [hasPassword, story]);
 
   const isChat = story?.format === "chat";
 
@@ -233,7 +250,7 @@ export default function ChapterPage() {
         </div>
       </div>
 
-      {story.password_hash && !passwordVerified ? (
+      {hasPassword && !passwordVerified ? (
         <div className="max-w-md mx-auto text-center py-20 px-4 space-y-4">
           <Lock size={40} className="text-muted mx-auto" />
           <h2 className="text-xl font-bold">This story is password protected</h2>
@@ -250,7 +267,7 @@ export default function ChapterPage() {
               const data = await res.json();
               if (data.success) {
                 setPasswordVerified(true);
-                sessionStorage.setItem(`story-access-${story.id}`, "true");
+                sessionStorage.setItem(`story-pw-${story.id}`, passwordInput);
               } else {
                 setPasswordError("Incorrect password");
               }

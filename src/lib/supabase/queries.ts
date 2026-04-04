@@ -31,7 +31,7 @@ export async function getPublishedStories(options?: {
 
   let query = supabase
     .from("stories")
-    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified, subscription_price)")
+    .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, badge_level, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, is_verified, subscription_price)")
     .eq("status", "published")
     .eq("visibility", "public");
 
@@ -72,7 +72,7 @@ export async function getStoryBySlug(slug: string) {
   if (!supabase) return null;
   const { data } = await supabase
     .from("stories")
-    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, bio, is_verified, follower_count, story_count, subscription_price, created_at)")
+    .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, badge_level, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url, bio, is_verified, follower_count, story_count, subscription_price, created_at)")
     .eq("slug", slug)
     .single();
   return data;
@@ -351,7 +351,7 @@ export async function searchStories(query: string) {
   if (!supabase) return [];
   const { data } = await supabase
     .from("stories")
-    .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+    .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, badge_level, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
     .eq("status", "published")
     .eq("visibility", "public")
     .textSearch("fts", query)
@@ -576,6 +576,17 @@ export async function saveStoryTags(storyId: string, tagNames: string[]): Promis
 // ============================================================
 // HELPERS
 // ============================================================
+
+export async function storyHasPassword(storyId: string): Promise<boolean> {
+  const supabase = createClient();
+  if (!supabase) return false;
+  const { data } = await supabase
+    .from("stories")
+    .select("password_hash")
+    .eq("id", storyId)
+    .single();
+  return !!data?.password_hash;
+}
 
 export function generateSlug(title: string): string {
   return title

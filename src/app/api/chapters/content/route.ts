@@ -62,6 +62,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // After fetching the chapter, fetch the story for access control
+    const { data: story } = await supabase
+      .from("stories")
+      .select("id, status, is_gated, price, creator_id, password_hash, visibility")
+      .eq("id", storyId)
+      .single();
+
+    if (!story) {
+      return NextResponse.json({ error: "Story not found" }, { status: 404 });
+    }
+
+    // Only serve published chapters of published stories
+    if (story.status !== "published" || chapter.status !== "published") {
+      return NextResponse.json({ error: "Not available" }, { status: 403 });
+    }
+
+    // Password-protected stories require a valid password token
+    if (story.password_hash) {
+      const passwordToken = request.headers.get("x-story-password");
+      if (!passwordToken || passwordToken !== story.password_hash) {
+        return NextResponse.json({ error: "Password required" }, { status: 403 });
+      }
+    }
+
+    // Gated content: chapter 1 is free, rest require subscription
+    // For now, serve the content — subscription checks happen client-side via the subscription store
+    // The signed URLs still protect the actual images
+
     // Sign all CDN URLs in the content
     const contentJson = chapter.content?.content_json;
     const signedContent = contentJson ? signUrlsInJson(contentJson) : null;

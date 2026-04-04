@@ -37,6 +37,7 @@ import {
   saveChapterContent,
   createChapter,
   saveStoryTags,
+  storyHasPassword,
 } from "@/lib/supabase/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { StoryFormat, ChatContent, Story, Chapter } from "@/lib/types";
@@ -92,6 +93,7 @@ export default function EditStoryPage() {
   const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
   const [storyPassword, setStoryPassword] = useState("");
   const [removePassword, setRemovePassword] = useState(false);
+  const [hasExistingPassword, setHasExistingPassword] = useState(false);
   const [, setCoverImageUrl] = useState<string | null>(null);
 
   // Chapters
@@ -116,7 +118,7 @@ export default function EditStoryPage() {
       // Fetch story
       const { data: story } = await supabase
         .from("stories")
-        .select("*, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+        .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, badge_level, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
         .eq("id", storyId)
         .single();
 
@@ -126,6 +128,8 @@ export default function EditStoryPage() {
       }
 
       setStoryData(story as Story);
+      const existingPw = await storyHasPassword(storyId);
+      setHasExistingPassword(existingPw);
       setTitle(story.title);
       setDescription(story.description);
       setCategoryId(story.category_id);
@@ -817,7 +821,7 @@ export default function EditStoryPage() {
               <div className="space-y-2">
                 <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty to keep current password"
                   value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
-                {storyData?.password_hash && !removePassword && (
+                {hasExistingPassword && !removePassword && (
                   <button type="button" onClick={() => setRemovePassword(true)} className="text-xs text-danger hover:underline cursor-pointer">
                     Remove existing password
                   </button>

@@ -49,7 +49,6 @@ export interface Story {
   is_gated: boolean;
   price: number;
   visibility: "public" | "unlisted";
-  password_hash?: string | null;
   chapter_count: number;
   published_chapter_count: number;
   view_count: number;
