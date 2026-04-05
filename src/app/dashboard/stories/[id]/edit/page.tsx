@@ -118,7 +118,7 @@ export default function EditStoryPage() {
       // Fetch story
       const { data: story } = await supabase
         .from("stories")
-        .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, badge_level, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
+        .select("id, creator_id, title, slug, description, cover_image_url, format, category_id, status, is_gated, price, chapter_count, published_chapter_count, view_count, tip_total, comment_count, word_count, visibility, created_at, updated_at, category:categories(*), creator:profiles!creator_id(id, username, display_name, avatar_url)")
         .eq("id", storyId)
         .single();
 
