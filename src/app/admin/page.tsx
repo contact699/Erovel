@@ -354,6 +354,7 @@ export default function AdminDashboardPage() {
           icon: Users,
           color: "text-blue-500",
           bg: "bg-blue-500/10",
+          href: "/admin/users",
         },
         {
           label: "Creators",
@@ -361,6 +362,7 @@ export default function AdminDashboardPage() {
           icon: UserPlus,
           color: "text-purple-500",
           bg: "bg-purple-500/10",
+          href: "/admin/users",
         },
         {
           label: "Verified Creators",
@@ -368,6 +370,7 @@ export default function AdminDashboardPage() {
           icon: UserCheck,
           color: "text-green-500",
           bg: "bg-green-500/10",
+          href: "/admin/users",
         },
         {
           label: "Readers",
@@ -375,6 +378,7 @@ export default function AdminDashboardPage() {
           icon: Eye,
           color: "text-cyan-500",
           bg: "bg-cyan-500/10",
+          href: "/admin/users",
         },
       ],
     },
@@ -388,6 +392,7 @@ export default function AdminDashboardPage() {
           icon: BookOpen,
           color: "text-indigo-500",
           bg: "bg-indigo-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Published",
@@ -395,6 +400,7 @@ export default function AdminDashboardPage() {
           icon: FileText,
           color: "text-emerald-500",
           bg: "bg-emerald-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Drafts",
@@ -402,6 +408,7 @@ export default function AdminDashboardPage() {
           icon: FileText,
           color: "text-amber-500",
           bg: "bg-amber-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Chapters",
@@ -409,6 +416,7 @@ export default function AdminDashboardPage() {
           icon: FileText,
           color: "text-sky-500",
           bg: "bg-sky-500/10",
+          href: "/admin/stories",
         },
       ],
     },
@@ -422,6 +430,7 @@ export default function AdminDashboardPage() {
           icon: TrendingUp,
           color: "text-rose-500",
           bg: "bg-rose-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Comments",
@@ -429,6 +438,7 @@ export default function AdminDashboardPage() {
           icon: MessageSquare,
           color: "text-orange-500",
           bg: "bg-orange-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Bookmarks",
@@ -436,6 +446,7 @@ export default function AdminDashboardPage() {
           icon: Bookmark,
           color: "text-yellow-500",
           bg: "bg-yellow-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Follows",
@@ -443,6 +454,7 @@ export default function AdminDashboardPage() {
           icon: Heart,
           color: "text-pink-500",
           bg: "bg-pink-500/10",
+          href: "/admin/users",
         },
       ],
     },
@@ -456,6 +468,7 @@ export default function AdminDashboardPage() {
           icon: DollarSign,
           color: "text-green-600",
           bg: "bg-green-600/10",
+          href: "/admin/stories",
         },
         {
           label: "Platform Cut (15%)",
@@ -463,6 +476,7 @@ export default function AdminDashboardPage() {
           icon: DollarSign,
           color: "text-teal-500",
           bg: "bg-teal-500/10",
+          href: "/admin/stories",
         },
         {
           label: "Pending Reports",
@@ -474,6 +488,7 @@ export default function AdminDashboardPage() {
             counts.pendingReports > 0
               ? "bg-red-500/10"
               : "bg-foreground/5",
+          href: "/admin/reports",
         },
         {
           label: "Creator Verify Rate",
@@ -484,6 +499,7 @@ export default function AdminDashboardPage() {
           icon: CheckCircle,
           color: "text-emerald-500",
           bg: "bg-emerald-500/10",
+          href: "/admin/users",
         },
       ],
     },
@@ -522,11 +538,8 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {row.metrics.map((metric) => {
               const Icon = metric.icon;
-              return (
-                <div
-                  key={metric.label}
-                  className="bg-surface border border-border rounded-xl p-5"
-                >
+              const inner = (
+                <>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-muted">{metric.label}</span>
                     <div
@@ -536,6 +549,22 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                   <p className="text-2xl font-bold">{metric.value}</p>
+                </>
+              );
+              return metric.href ? (
+                <Link
+                  key={metric.label}
+                  href={metric.href}
+                  className="bg-surface border border-border rounded-xl p-5 hover:bg-surface-hover transition-colors block"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div
+                  key={metric.label}
+                  className="bg-surface border border-border rounded-xl p-5"
+                >
+                  {inner}
                 </div>
               );
             })}
@@ -656,7 +685,12 @@ export default function AdminDashboardPage() {
           <div className="bg-surface border border-border rounded-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h3 className="font-semibold text-sm">Top Stories</h3>
-              <span className="text-xs text-muted">by views</span>
+              <Link href="/admin/stories">
+                <Button variant="ghost" size="sm">
+                  View all
+                  <ArrowRight size={14} />
+                </Button>
+              </Link>
             </div>
             {stats.topStories.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-muted">
@@ -692,7 +726,7 @@ export default function AdminDashboardPage() {
                       >
                         <td className="px-4 py-2.5 max-w-[180px]">
                           <Link
-                            href={`/story/${story.slug}`}
+                            href={`/admin/stories/${story.id}`}
                             className="font-medium text-sm hover:text-accent transition-colors truncate block"
                           >
                             {story.title}
@@ -722,6 +756,12 @@ export default function AdminDashboardPage() {
           <div className="bg-surface border border-border rounded-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h3 className="font-semibold text-sm">Recent Stories</h3>
+              <Link href="/admin/stories">
+                <Button variant="ghost" size="sm">
+                  View all
+                  <ArrowRight size={14} />
+                </Button>
+              </Link>
             </div>
             {stats.recentStories.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-muted">
@@ -757,7 +797,7 @@ export default function AdminDashboardPage() {
                       >
                         <td className="px-4 py-2.5 max-w-[180px]">
                           <Link
-                            href={`/story/${story.slug}`}
+                            href={`/admin/stories/${story.id}`}
                             className="font-medium text-sm hover:text-accent transition-colors truncate block"
                           >
                             {story.title}
@@ -912,6 +952,20 @@ export default function AdminDashboardPage() {
                 <p className="text-sm font-medium">User Management</p>
                 <p className="text-xs text-muted">
                   {formatNumber(counts.totalUsers)} accounts
+                </p>
+              </div>
+              <ArrowRight size={16} className="text-muted shrink-0" />
+            </div>
+          </Link>
+          <Link href="/admin/stories" className="block">
+            <div className="flex items-center gap-4 p-5 bg-surface border border-border rounded-xl hover:bg-surface-hover transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
+                <BookOpen size={18} className="text-indigo-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">All Stories</p>
+                <p className="text-xs text-muted">
+                  {formatNumber(counts.totalStories)} stories (moderation)
                 </p>
               </div>
               <ArrowRight size={16} className="text-muted shrink-0" />

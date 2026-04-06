@@ -68,6 +68,7 @@ export interface Chapter {
   title: string;
   status: ChapterStatus;
   publish_at: string | null;
+  is_exclusive: boolean;
   created_at: string;
 }
 

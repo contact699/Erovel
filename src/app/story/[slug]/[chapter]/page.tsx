@@ -64,7 +64,8 @@ export default function ChapterPage() {
     ? isContentUnlocked(story.id, story.creator_id)
     : false;
   const FREE_PREVIEW_CHAPTERS = 1;
-  const isGatedChapter = story?.is_gated && chapterNum > FREE_PREVIEW_CHAPTERS && !unlocked;
+  const currentChapterData = chapters.find((c) => c.chapter_number === chapterNum);
+  const isGatedChapter = story?.is_gated && !unlocked && (chapterNum > FREE_PREVIEW_CHAPTERS || currentChapterData?.is_exclusive);
 
   // Effect 1: Fetch story metadata + chapters (no content)
   useEffect(() => {
@@ -150,8 +151,6 @@ export default function ChapterPage() {
     fetchContent();
     return () => { cancelled = true; };
   }, [story, chapterNum, hasPassword, passwordVerified, user]);
-
-  const isChat = story?.format === "chat";
 
   const prevChapter = chapters.find(
     (ch) => ch.chapter_number === chapterNum - 1 && ch.status === "published"
@@ -265,7 +264,7 @@ export default function ChapterPage() {
               setPasswordError("Failed to verify password");
             }
           }} className="space-y-3">
-            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+            <Input type="password" autoComplete="off" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
             {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
             <Button type="submit" className="w-full">Unlock</Button>
           </form>
@@ -574,7 +573,7 @@ export default function ChapterPage() {
                 const isCurrentChapter =
                   ch.chapter_number === chapter.chapter_number;
                 const isPublished = ch.status === "published";
-                const isLocked = story.is_gated && ch.chapter_number > FREE_PREVIEW_CHAPTERS && !unlocked;
+                const isLocked = story.is_gated && !unlocked && (ch.chapter_number > FREE_PREVIEW_CHAPTERS || ch.is_exclusive);
 
                 return (
                   <div key={ch.id}>

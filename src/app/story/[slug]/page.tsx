@@ -161,8 +161,6 @@ export default function StoryPage() {
   const firstPublishedChapter = chapters.find(
     (ch) => ch.status === "published"
   );
-  const isChat = story.format === "chat";
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header / Back nav */}
@@ -203,7 +201,7 @@ export default function StoryPage() {
               setPasswordError("Failed to verify password");
             }
           }} className="space-y-3">
-            <Input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
+            <Input type="password" autoComplete="off" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Password" />
             {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
             <Button type="submit" className="w-full">Unlock</Button>
           </form>
@@ -425,7 +423,7 @@ export default function StoryPage() {
               const isScheduled = ch.status === "scheduled";
               const isDraft = ch.status === "draft";
               const FREE_PREVIEW_CHAPTERS = 1;
-              const isLocked = story.is_gated && ch.chapter_number > FREE_PREVIEW_CHAPTERS && !unlocked;
+              const isLocked = story.is_gated && !unlocked && (ch.chapter_number > FREE_PREVIEW_CHAPTERS || ch.is_exclusive);
 
               return (
                 <div key={ch.id}>

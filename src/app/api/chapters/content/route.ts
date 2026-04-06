@@ -86,6 +86,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Exclusive chapters are only valid on gated stories.
+    if (chapter.is_exclusive) {
+      // Treat non-gated exclusive content as unavailable so misconfigured stories
+      // do not accidentally expose content that was intended to remain paywalled.
+      if (!story.is_gated) {
+        return NextResponse.json({ error: "Exclusive content" }, { status: 403 });
+      }
+    }
+
     // Gated content: chapter 1 is free, rest require subscription
     // For now, serve the content — subscription checks happen client-side via the subscription store
     // The signed URLs still protect the actual images

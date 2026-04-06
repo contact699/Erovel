@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/store/auth-store";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -105,35 +104,20 @@ export default function AdminRightsReviewPage() {
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
 
   const fetchDeclarations = useCallback(async () => {
-    const supabase = createClient();
-    if (!supabase) {
-      setError("Database not configured");
-      setLoading(false);
-      return;
-    }
-
     try {
-      let query = supabase
-        .from("content_rights_declarations")
-        .select(
-          "*, creator:profiles!content_rights_declarations_creator_id_fkey(id, username, display_name, avatar_url, is_verified)"
-        )
-        .order("grace_deadline", { ascending: true, nullsFirst: false });
+      const params = new URLSearchParams();
+      if (statusFilter !== "all") params.set("status", statusFilter);
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+      const res = await fetch(`/api/admin/rights-review?${params}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
       }
 
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) {
-        setError(fetchError.message);
-        return;
-      }
-
-      setDeclarations((data ?? []) as unknown as ContentRightsDeclaration[]);
-    } catch {
-      setError("Failed to load declarations");
+      const data = await res.json();
+      setDeclarations((data.declarations ?? []) as ContentRightsDeclaration[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load declarations");
     } finally {
       setLoading(false);
     }
@@ -167,9 +151,6 @@ export default function AdminRightsReviewPage() {
       return;
     }
 
-    const supabase = createClient();
-    if (!supabase) return;
-
     setUpdating(id);
     try {
       const updates: Record<string, unknown> = {
@@ -199,51 +180,49 @@ export default function AdminRightsReviewPage() {
         }
       }
 
-      const { error: updateError } = await supabase
-        .from("content_rights_declarations")
-        .update(updates)
-        .eq("id", id);
+      // Build notification payload
+      let notification: Record<string, string> | undefined;
+      const declaration = declarations.find((dec) => dec.id === id);
+      if (declaration) {
+        const notifTitle =
+          action === "approve"
+            ? "Rights declaration approved"
+            : action === "reject"
+              ? "Rights declaration rejected"
+              : "More info requested for rights declaration";
+        const notifBody =
+          action === "approve"
+            ? `Your permission documentation for "${declaration.subject_name || "content"}" has been approved.`
+            : action === "reject"
+              ? `Your permission documentation for "${declaration.subject_name || "content"}" was rejected: ${notes}`
+              : `We need more information about your permission for "${declaration.subject_name || "content"}": ${notes}`;
 
-      if (updateError) {
-        toast("error", updateError.message);
-        return;
+        notification = {
+          user_id: declaration.creator_id,
+          type: "rights_review",
+          title: notifTitle,
+          body: notifBody,
+          link: "/dashboard/stories",
+        };
       }
 
-      // Send notification to the creator (non-blocking)
-      try {
-        const declaration = declarations.find((dec) => dec.id === id);
-        if (declaration) {
-          const notifTitle =
-            action === "approve"
-              ? "Rights declaration approved"
-              : action === "reject"
-                ? "Rights declaration rejected"
-                : "More info requested for rights declaration";
-          const notifBody =
-            action === "approve"
-              ? `Your permission documentation for "${declaration.subject_name || "content"}" has been approved.`
-              : action === "reject"
-                ? `Your permission documentation for "${declaration.subject_name || "content"}" was rejected: ${notes}`
-                : `We need more information about your permission for "${declaration.subject_name || "content"}": ${notes}`;
+      const res = await fetch("/api/admin/rights-review", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, updates, notification }),
+      });
 
-          await supabase.from("notifications").insert({
-            user_id: declaration.creator_id,
-            type: "rights_review",
-            title: notifTitle,
-            body: notifBody,
-            link: "/dashboard/stories",
-          });
-        }
-      } catch {
-        // Notification failure should not block the main action
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to update");
       }
 
       toast("success", `Declaration ${action === "approve" ? "approved" : action === "reject" ? "rejected" : "returned for more info"}.`);
       setAdminNotes((prev) => ({ ...prev, [id]: "" }));
       setExpandedId(null);
       fetchDeclarations();
-    } catch {
-      toast("error", "Failed to update declaration");
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to update declaration");
     } finally {
       setUpdating(null);
     }

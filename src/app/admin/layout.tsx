@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import {
   LayoutDashboard,
+  BookOpen,
   Flag,
   Users,
   FileCheck,
@@ -18,6 +19,7 @@ import { useState, type ReactNode } from "react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/stories", label: "Stories", icon: BookOpen },
   { href: "/admin/reports", label: "Reports", icon: Flag },
   { href: "/admin/rights-review", label: "Rights Review", icon: FileCheck },
   { href: "/admin/users", label: "Users", icon: Users },

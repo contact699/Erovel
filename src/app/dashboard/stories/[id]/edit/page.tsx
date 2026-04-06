@@ -15,6 +15,7 @@ import {
   Calendar,
   ArrowLeft,
   Loader2,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -53,12 +54,72 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function formatDateInput(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function diffCalendarDays(a: Date, b: Date): number {
+  const aUtc = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const bUtc = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((aUtc - bUtc) / DAY_IN_MS);
+}
+
+function inferScheduleSettings(chapters: Chapter[]): { releaseCadence: string; startDate: string } {
+  const nonExclusiveChapters = [...chapters]
+    .filter((chapter) => !chapter.is_exclusive)
+    .sort((a, b) => a.chapter_number - b.chapter_number);
+
+  if (nonExclusiveChapters.length < 2 || !nonExclusiveChapters[0]?.publish_at) {
+    return { releaseCadence: "", startDate: "" };
+  }
+
+  const datedPrefix: Chapter[] = [];
+  for (const chapter of nonExclusiveChapters) {
+    if (!chapter.publish_at) break;
+    datedPrefix.push(chapter);
+  }
+
+  if (datedPrefix.length < 2) {
+    return { releaseCadence: "", startDate: "" };
+  }
+
+  const firstDate = new Date(datedPrefix[0].publish_at!);
+  const secondDate = new Date(datedPrefix[1].publish_at!);
+  if (isNaN(firstDate.getTime()) || isNaN(secondDate.getTime())) {
+    return { releaseCadence: "", startDate: "" };
+  }
+
+  const cadenceDays = diffCalendarDays(secondDate, firstDate);
+  const isSupportedCadence = RELEASE_CADENCES.some((option) => option.value === cadenceDays);
+  if (cadenceDays <= 0 || !isSupportedCadence) {
+    return { releaseCadence: "", startDate: "" };
+  }
+
+  for (let index = 0; index < datedPrefix.length; index++) {
+    const actualDate = new Date(datedPrefix[index].publish_at!);
+    const expectedDate = new Date(firstDate);
+    expectedDate.setDate(expectedDate.getDate() + (index * cadenceDays));
+    if (formatDateInput(actualDate) !== formatDateInput(expectedDate)) {
+      return { releaseCadence: "", startDate: "" };
+    }
+  }
+
+  return {
+    releaseCadence: String(cadenceDays),
+    startDate: formatDateInput(firstDate),
+  };
+}
+
 interface ChapterDraft {
   id: string;
   title: string;
   chapterNumber: number;
   status: string;
   isNew?: boolean; // true for chapters added locally that don't exist in DB yet
+  isExclusive?: boolean;
+  publishAt?: string | null;
   proseContent?: JSONContent;
   chatContent?: ChatContent;
 }
@@ -101,8 +162,9 @@ export default function EditStoryPage() {
   const [activeChapterId, setActiveChapterId] = useState<string>("");
 
   // Schedule
-  const [releaseCadence, setReleaseCadence] = useState("3");
-  const [startDate, setStartDate] = useState("2026-04-01");
+  const [releaseCadence, setReleaseCadence] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [scheduleEdited, setScheduleEdited] = useState(false);
 
   // Fetch story and chapters from Supabase
   async function fetchData() {
@@ -171,6 +233,8 @@ export default function EditStoryPage() {
             title: ch.title,
             chapterNumber: ch.chapter_number,
             status: ch.status,
+            isExclusive: ch.is_exclusive || false,
+            publishAt: ch.publish_at,
           };
 
           if (story.format === "prose" && contentJson) {
@@ -184,6 +248,10 @@ export default function EditStoryPage() {
       );
 
       setChapters(chapterDrafts);
+      const inferredSchedule = inferScheduleSettings(chaptersData as Chapter[]);
+      setReleaseCadence(inferredSchedule.releaseCadence);
+      setStartDate(inferredSchedule.startDate);
+      setScheduleEdited(false);
       if (chapterDrafts.length > 0) {
         setActiveChapterId(chapterDrafts[0].id);
       }
@@ -251,6 +319,26 @@ export default function EditStoryPage() {
     setChapters(updated.map((c, i) => ({ ...c, chapterNumber: i + 1 })));
   };
 
+  const toggleExclusive = (id: string) => {
+    setChapters(
+      chapters.map((c) => (c.id === id ? { ...c, isExclusive: !c.isExclusive } : c))
+    );
+  };
+
+  const releaseNow = async (id: string) => {
+    const ch = chapters.find((c) => c.id === id);
+    if (!ch || ch.isNew) return;
+    try {
+      await updateChapterDb(ch.id, { status: "published", publish_at: null });
+      setChapters(
+        chapters.map((c) => (c.id === id ? { ...c, status: "published", publishAt: null } : c))
+      );
+      toast("success", `"${ch.title}" released!`);
+    } catch {
+      toast("error", "Failed to release chapter");
+    }
+  };
+
   const updateChapterTitle = (id: string, newTitle: string) => {
     setChapters(
       chapters.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
@@ -293,13 +381,28 @@ export default function EditStoryPage() {
     const baseDate = new Date(startDate + "T00:00:00");
     if (isNaN(baseDate.getTime())) return dates;
 
+    let scheduleIndex = 0;
     for (const ch of chapters) {
-      const offset = (ch.chapterNumber - 1) * cadenceDays;
+      if (isGated && ch.isExclusive) continue; // exclusive chapters skip the schedule
+      const offset = scheduleIndex * cadenceDays;
       const publishDate = new Date(baseDate);
       publishDate.setDate(publishDate.getDate() + offset);
       dates.set(ch.id, publishDate.toISOString());
+      scheduleIndex++;
     }
     return dates;
+  };
+
+  const getPersistedScheduleDates = (): Map<string, string> => {
+    if (scheduleEdited) {
+      return computeScheduleDates();
+    }
+
+    return new Map(
+      chapters.flatMap((chapter) =>
+        chapter.publishAt ? [[chapter.id, chapter.publishAt] as const] : []
+      )
+    );
   };
 
   // ---- Save / Publish handlers ----
@@ -330,7 +433,7 @@ export default function EditStoryPage() {
       }
       await updateStory(storyId, storyUpdates);
 
-      const scheduleDates = computeScheduleDates();
+      const scheduleDates = getPersistedScheduleDates();
 
       // Update each chapter
       for (const ch of chapters) {
@@ -360,12 +463,19 @@ export default function EditStoryPage() {
 
         // Update chapter metadata – save schedule dates but keep status as-is
         // (status is only promoted to "scheduled"/"published" via handlePublish)
+        // Exception: exclusive+scheduled chapters must be promoted to published now,
+        // because the cron job will skip them and they'd be stuck forever.
         const publishAt = scheduleDates.get(ch.id);
+        const isChapterExclusive = isGated && Boolean(ch.isExclusive);
         const chapterUpdates: Record<string, unknown> = {
           title: ch.title,
           chapter_number: ch.chapterNumber,
+          is_exclusive: isChapterExclusive,
         };
-        if (publishAt) {
+        if (isChapterExclusive && ch.status === "scheduled") {
+          chapterUpdates.status = "published";
+          chapterUpdates.publish_at = null;
+        } else if (scheduleEdited && publishAt) {
           chapterUpdates.publish_at = publishAt;
         }
 
@@ -399,7 +509,7 @@ export default function EditStoryPage() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const scheduleDates = computeScheduleDates();
+      const scheduleDates = getPersistedScheduleDates();
       const now = new Date();
 
       // Save and schedule/publish each chapter
@@ -433,18 +543,29 @@ export default function EditStoryPage() {
 
         // Update chapter with publish/schedule status
         const publishAt = scheduleDates.get(ch.id);
-        if (publishAt && new Date(publishAt) > now) {
+        const isChapterExclusive = isGated && Boolean(ch.isExclusive);
+        if (isChapterExclusive) {
+          // Exclusive chapters publish immediately but stay behind the paywall
+          await updateChapterDb(chDbId, {
+            title: ch.title,
+            chapter_number: ch.chapterNumber,
+            status: "published",
+            is_exclusive: true,
+          });
+        } else if (publishAt && new Date(publishAt) > now) {
           await updateChapterDb(chDbId, {
             title: ch.title,
             chapter_number: ch.chapterNumber,
             status: "scheduled",
             publish_at: publishAt,
+            is_exclusive: false,
           });
         } else {
           await updateChapterDb(chDbId, {
             title: ch.title,
             chapter_number: ch.chapterNumber,
             status: "published",
+            is_exclusive: false,
           });
         }
       }
@@ -819,7 +940,7 @@ export default function EditStoryPage() {
 
             {visibility === "unlisted" && (
               <div className="space-y-2">
-                <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty to keep current password"
+                <Input label="Password (optional)" id="story-password" type="password" autoComplete="off" placeholder="Leave empty to keep current password"
                   value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
                 {hasExistingPassword && !removePassword && (
                   <button type="button" onClick={() => setRemovePassword(true)} className="text-xs text-danger hover:underline cursor-pointer">
@@ -888,17 +1009,55 @@ export default function EditStoryPage() {
                           <span
                             className={cn(
                               "text-[10px]",
-                              ch.status === "published"
+                              isGated && ch.isExclusive
+                                ? "text-warning"
+                                : ch.status === "published"
                                 ? "text-success"
                                 : ch.status === "scheduled"
                                 ? "text-accent"
                                 : "text-muted"
                             )}
                           >
-                            {ch.status}
+                            {isGated && ch.isExclusive ? "exclusive" : ch.status}
                           </span>
                         </div>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExclusive(ch.id);
+                            }}
+                            title={
+                              !isGated
+                                ? "Enable gated content to use exclusive chapters"
+                                : ch.isExclusive
+                                ? "Remove exclusive lock"
+                                : "Mark as exclusive (stays behind paywall)"
+                            }
+                            className={cn(
+                              "cursor-pointer",
+                              !isGated
+                                ? "text-muted/40 cursor-not-allowed"
+                                : ch.isExclusive
+                                ? "text-warning"
+                                : "text-muted hover:text-foreground"
+                            )}
+                            disabled={!isGated}
+                          >
+                            <Lock className="h-3 w-3" />
+                          </button>
+                          {ch.status === "scheduled" && !ch.isNew && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                releaseNow(ch.id);
+                              }}
+                              title="Release now"
+                              className="text-muted hover:text-success cursor-pointer"
+                            >
+                              <Send className="h-3 w-3" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -946,29 +1105,46 @@ export default function EditStoryPage() {
                     id="cadence"
                     options={cadenceOptions}
                     value={releaseCadence}
-                    onChange={(e) => setReleaseCadence(e.target.value)}
+                    onChange={(e) => {
+                      setReleaseCadence(e.target.value);
+                      setScheduleEdited(true);
+                    }}
                   />
                   <Input
                     label="Start Date"
                     id="start-date"
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setScheduleEdited(true);
+                    }}
                   />
                   {startDate && releaseCadence && (
                     <div className="space-y-1 pt-1">
                       <p className="text-xs font-medium text-muted">Preview</p>
-                      {chapters.map((ch) => {
+                      {(() => {
                         const cadenceDays = parseInt(releaseCadence, 10);
-                        const offset = (ch.chapterNumber - 1) * cadenceDays;
-                        const d = new Date(startDate + "T00:00:00");
-                        d.setDate(d.getDate() + offset);
-                        return (
-                          <p key={ch.id} className="text-xs text-muted truncate">
-                            Ch {ch.chapterNumber}: {d.toLocaleDateString()}
-                          </p>
-                        );
-                      })}
+                        let scheduleIndex = 0;
+                        return chapters.map((ch) => {
+                          if (isGated && ch.isExclusive) {
+                            return (
+                              <p key={ch.id} className="text-xs text-warning truncate">
+                                Ch {ch.chapterNumber}: Exclusive
+                              </p>
+                            );
+                          }
+                          const offset = scheduleIndex * cadenceDays;
+                          const d = new Date(startDate + "T00:00:00");
+                          d.setDate(d.getDate() + offset);
+                          scheduleIndex++;
+                          return (
+                            <p key={ch.id} className="text-xs text-muted truncate">
+                              Ch {ch.chapterNumber}: {d.toLocaleDateString()}
+                            </p>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>

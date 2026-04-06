@@ -32,7 +32,17 @@ import {
   Trash2,
   FileText,
   Eye,
+  Calendar,
 } from "lucide-react";
+import { RELEASE_CADENCES } from "@/lib/constants";
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
 
 type ImportStep = "input" | "chapters" | "review";
 
@@ -69,6 +79,10 @@ export default function ImportPage() {
   const [format, setFormat] = useState<StoryFormat>("gallery");
   const [isGated, setIsGated] = useState(false);
   const [storyPrice, setStoryPrice] = useState(0);
+  const [visibility, setVisibility] = useState<"public" | "unlisted">("public");
+  const [storyPassword, setStoryPassword] = useState("");
+  const [releaseCadence, setReleaseCadence] = useState("");
+  const [startDate, setStartDate] = useState("");
 
   const [chapters, setChapters] = useState<ChapterImport[]>([]);
   const [fetchingAll, setFetchingAll] = useState(false);
@@ -394,19 +408,43 @@ export default function ImportPage() {
         is_gated: isGated,
         price: isGated ? storyPrice : 0,
         cover_image_url: firstImage?.url,
+        visibility,
+        password_hash: visibility === "unlisted" && storyPassword
+          ? await hashPassword(storyPassword)
+          : null,
       });
 
       if (!story) throw new Error("Failed to create story");
+
+      // Compute schedule dates if cadence is set
+      const cadenceDays = releaseCadence ? parseInt(releaseCadence, 10) : 0;
+      const baseDate = startDate ? new Date(startDate + "T00:00:00") : null;
+      const now = new Date();
 
       // Create all chapters — rollback story on failure
       try {
         for (let i = 0; i < finalChapters.length; i++) {
           const ch = finalChapters[i];
+
+          let chapterStatus: "draft" | "published" | "scheduled" = asDraft ? "draft" : "published";
+          let publishAt: string | undefined;
+
+          if (!asDraft && cadenceDays > 0 && baseDate) {
+            const offset = i * cadenceDays;
+            const publishDate = new Date(baseDate);
+            publishDate.setDate(publishDate.getDate() + offset);
+            if (publishDate > now) {
+              chapterStatus = "scheduled";
+              publishAt = publishDate.toISOString();
+            }
+          }
+
           const chapter = await createChapter({
             story_id: story.id,
             chapter_number: i + 1,
             title: ch.title,
-            status: asDraft ? "draft" : "published",
+            status: chapterStatus,
+            ...(publishAt ? { publish_at: publishAt } : {}),
           });
 
           if (!chapter) throw new Error(`Failed to create chapter ${i + 1}`);
@@ -445,6 +483,10 @@ export default function ImportPage() {
     setStoryDescription("");
     setIsGated(false);
     setStoryPrice(0);
+    setVisibility("public");
+    setStoryPassword("");
+    setReleaseCadence("");
+    setStartDate("");
     setChapters([]);
     setError("");
     setPublished(false);
@@ -590,6 +632,83 @@ export default function ImportPage() {
                 placeholder="0.00"
               />
             )}
+
+            {/* Unlisted toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Unlisted</p>
+                <p className="text-xs text-muted">
+                  Story won&apos;t appear in browse or search. Only accessible via direct link.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVisibility(v => v === "public" ? "unlisted" : "public")}
+                className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer ${
+                  visibility === "unlisted" ? "bg-accent" : "bg-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    visibility === "unlisted" ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {visibility === "unlisted" && (
+              <Input
+                label="Password (optional)"
+                id="import-password"
+                type="password"
+                autoComplete="off"
+                placeholder="Leave empty for no password"
+                value={storyPassword}
+                onChange={(e) => setStoryPassword(e.target.value)}
+              />
+            )}
+
+            {/* Schedule */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex items-center gap-3">
+                <Calendar size={16} className="text-muted" />
+                <div>
+                  <p className="text-sm font-medium">Scheduled Release</p>
+                  <p className="text-xs text-muted">
+                    Release chapters over time instead of all at once
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Release Cadence"
+                id="import-cadence"
+                options={[
+                  { value: "", label: "All at once (no schedule)" },
+                  ...RELEASE_CADENCES.map(r => ({ value: String(r.value), label: r.label })),
+                ]}
+                value={releaseCadence}
+                onChange={(e) => {
+                  setReleaseCadence(e.target.value);
+                  if (e.target.value && !startDate) {
+                    const now = new Date();
+                    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                    setStartDate(localDate);
+                  }
+                }}
+              />
+              {releaseCadence && (
+                <Input
+                  label="Start Date"
+                  id="import-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              )}
+            </div>
           </div>
 
           {/* URLs */}

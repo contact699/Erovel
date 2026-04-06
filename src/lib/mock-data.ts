@@ -279,18 +279,18 @@ export const mockStories: Story[] = [
 // ── Chapters ──
 
 export const mockChapters: Chapter[] = [
-  { id: "ch-1", story_id: "story-1", chapter_number: 1, title: "The Proposal", status: "published", publish_at: null, created_at: "2025-11-01T00:00:00Z" },
-  { id: "ch-2", story_id: "story-1", chapter_number: 2, title: "Ground Rules", status: "published", publish_at: null, created_at: "2025-11-04T00:00:00Z" },
-  { id: "ch-3", story_id: "story-1", chapter_number: 3, title: "First Meeting", status: "published", publish_at: null, created_at: "2025-11-07T00:00:00Z" },
-  { id: "ch-4", story_id: "story-1", chapter_number: 4, title: "Crossing Lines", status: "published", publish_at: null, created_at: "2025-11-10T00:00:00Z" },
-  { id: "ch-5", story_id: "story-1", chapter_number: 5, title: "The Gala", status: "published", publish_at: null, created_at: "2025-11-13T00:00:00Z" },
-  { id: "ch-6", story_id: "story-1", chapter_number: 6, title: "Unraveling", status: "published", publish_at: null, created_at: "2025-11-16T00:00:00Z" },
-  { id: "ch-7", story_id: "story-1", chapter_number: 7, title: "The Truth", status: "published", publish_at: null, created_at: "2025-11-19T00:00:00Z" },
-  { id: "ch-8", story_id: "story-1", chapter_number: 8, title: "Breaking Point", status: "published", publish_at: null, created_at: "2025-11-22T00:00:00Z" },
-  { id: "ch-9", story_id: "story-1", chapter_number: 9, title: "Aftermath", status: "scheduled", publish_at: "2026-04-01T00:00:00Z", created_at: "2025-11-25T00:00:00Z" },
-  { id: "ch-10", story_id: "story-1", chapter_number: 10, title: "Reunion", status: "scheduled", publish_at: "2026-04-04T00:00:00Z", created_at: "2025-11-28T00:00:00Z" },
-  { id: "ch-11", story_id: "story-1", chapter_number: 11, title: "Surrender", status: "draft", publish_at: null, created_at: "2025-12-01T00:00:00Z" },
-  { id: "ch-12", story_id: "story-1", chapter_number: 12, title: "Ever After", status: "draft", publish_at: null, created_at: "2025-12-04T00:00:00Z" },
+  { id: "ch-1", story_id: "story-1", chapter_number: 1, title: "The Proposal", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-01T00:00:00Z" },
+  { id: "ch-2", story_id: "story-1", chapter_number: 2, title: "Ground Rules", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-04T00:00:00Z" },
+  { id: "ch-3", story_id: "story-1", chapter_number: 3, title: "First Meeting", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-07T00:00:00Z" },
+  { id: "ch-4", story_id: "story-1", chapter_number: 4, title: "Crossing Lines", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-10T00:00:00Z" },
+  { id: "ch-5", story_id: "story-1", chapter_number: 5, title: "The Gala", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-13T00:00:00Z" },
+  { id: "ch-6", story_id: "story-1", chapter_number: 6, title: "Unraveling", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-16T00:00:00Z" },
+  { id: "ch-7", story_id: "story-1", chapter_number: 7, title: "The Truth", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-19T00:00:00Z" },
+  { id: "ch-8", story_id: "story-1", chapter_number: 8, title: "Breaking Point", status: "published", publish_at: null, is_exclusive: false, created_at: "2025-11-22T00:00:00Z" },
+  { id: "ch-9", story_id: "story-1", chapter_number: 9, title: "Aftermath", status: "scheduled", publish_at: "2026-04-01T00:00:00Z", is_exclusive: false, created_at: "2025-11-25T00:00:00Z" },
+  { id: "ch-10", story_id: "story-1", chapter_number: 10, title: "Reunion", status: "scheduled", publish_at: "2026-04-04T00:00:00Z", is_exclusive: false, created_at: "2025-11-28T00:00:00Z" },
+  { id: "ch-11", story_id: "story-1", chapter_number: 11, title: "Surrender", status: "draft", publish_at: null, is_exclusive: false, created_at: "2025-12-01T00:00:00Z" },
+  { id: "ch-12", story_id: "story-1", chapter_number: 12, title: "Ever After", status: "draft", publish_at: null, is_exclusive: false, created_at: "2025-12-04T00:00:00Z" },
 ];
 
 // ── Chat content example ──

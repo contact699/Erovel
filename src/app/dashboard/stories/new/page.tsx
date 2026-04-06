@@ -670,7 +670,7 @@ export default function NewStoryPage() {
             </div>
 
             {visibility === "unlisted" && (
-              <Input label="Password (optional)" id="story-password" type="password" placeholder="Leave empty for no password"
+              <Input label="Password (optional)" id="story-password" type="password" autoComplete="off" placeholder="Leave empty for no password"
                 value={storyPassword} onChange={(e) => setStoryPassword(e.target.value)} />
             )}
 

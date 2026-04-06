@@ -178,6 +178,7 @@ export async function createChapter(chapter: {
   title: string;
   status: "draft" | "published" | "scheduled";
   publish_at?: string;
+  is_exclusive?: boolean;
 }) {
   const supabase = createClient();
   if (!supabase) return null;
