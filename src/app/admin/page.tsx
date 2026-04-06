@@ -400,7 +400,7 @@ export default function AdminDashboardPage() {
           icon: FileText,
           color: "text-emerald-500",
           bg: "bg-emerald-500/10",
-          href: "/admin/stories",
+          href: "/admin/stories?status=published",
         },
         {
           label: "Drafts",
@@ -408,7 +408,7 @@ export default function AdminDashboardPage() {
           icon: FileText,
           color: "text-amber-500",
           bg: "bg-amber-500/10",
-          href: "/admin/stories",
+          href: "/admin/stories?status=draft",
         },
         {
           label: "Chapters",

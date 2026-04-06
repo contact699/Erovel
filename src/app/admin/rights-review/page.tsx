@@ -11,7 +11,6 @@ import { toast } from "@/components/ui/toast";
 import {
   DECLARATION_TYPE_LABELS,
   EVIDENCE_TIER_LABELS,
-  BADGE_LEVEL_LABELS,
 } from "@/lib/constants";
 import type { ContentRightsDeclaration, DeclarationStatus } from "@/lib/types";
 import {

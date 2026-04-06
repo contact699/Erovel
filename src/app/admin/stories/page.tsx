@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { formatRelativeDate, formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +12,9 @@ import { Select } from "@/components/ui/select";
 import {
   BookOpen,
   Search,
-  Eye,
-  MessageSquare,
   DollarSign,
   Loader2,
   AlertTriangle,
-  Lock,
   EyeOff,
   ChevronLeft,
   ChevronRight,
@@ -53,14 +51,15 @@ const statusOptions = [
 const PAGE_SIZE = 25;
 
 export default function AdminStoriesPage() {
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const [stories, setStories] = useState<AdminStory[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
   const [page, setPage] = useState(0);
 
   const fetchStories = useCallback(async () => {

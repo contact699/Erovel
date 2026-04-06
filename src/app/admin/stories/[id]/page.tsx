@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
@@ -63,32 +63,31 @@ export default function AdminStoryDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user || user.role !== "admin") return;
+  const fetchStory = useCallback(async () => {
     setLoading(true);
     setError(null);
+    try {
+      const res = await fetch(`/api/admin/stories/${storyId}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
 
-    fetch(`/api/admin/stories/${storyId}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setStory(data.story);
-        setChapters(data.chapters);
-        // Auto-expand first chapter
-        if (data.chapters.length > 0) {
-          setExpandedChapter(data.chapters[0].id);
-        }
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load story");
-      })
-      .finally(() => setLoading(false));
-  }, [storyId, user]);
+      const data = await res.json();
+      setStory(data.story);
+      setChapters(data.chapters);
+      setExpandedChapter(data.chapters[0]?.id ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load story");
+    } finally {
+      setLoading(false);
+    }
+  }, [storyId]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    void fetchStory();
+  }, [user, fetchStory]);
 
   if (user?.role !== "admin") {
     return (

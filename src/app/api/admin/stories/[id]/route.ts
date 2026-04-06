@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminRoute } from "@/lib/admin-auth";
 import { signCdnUrl } from "@/lib/bunny";
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey);
-}
 
 function signUrlsInJson(obj: unknown): unknown {
   if (typeof obj === "string") {
@@ -34,9 +27,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = getAdminClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Not configured" }, { status: 503 });
+  const { supabase, response } = await requireAdminRoute();
+  if (!supabase || response) {
+    return response ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
