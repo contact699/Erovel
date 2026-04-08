@@ -37,9 +37,47 @@ export function SubscribeButton({
     ? checkSubscribed(targetType, targetId)
     : isSubscribedProp;
 
-  function handleSubscribe() {
-    // Persist in the shared store
+  async function handleSubscribe() {
+    // Wire through the splits engine. CCBill integration replaces this
+    // with a redirect → webhook flow.
     if (targetId) {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { useAuthStore } = await import("@/store/auth-store");
+      const supabase = createClient();
+      const reader = useAuthStore.getState().user;
+
+      if (supabase && reader) {
+        const { createPaymentWithSplits } = await import("@/lib/payments");
+        // Resolve creator_id: if target is a creator, that's it directly;
+        // if target is a story, look up the story's creator.
+        let resolvedCreatorId = targetType === "creator" ? targetId : creatorId;
+        if (targetType === "story" && !resolvedCreatorId) {
+          const { data } = await supabase
+            .from("stories")
+            .select("creator_id")
+            .eq("id", targetId)
+            .single();
+          resolvedCreatorId = data?.creator_id;
+        }
+
+        if (resolvedCreatorId) {
+          // 30-day subscription period
+          const expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+          await createPaymentWithSplits({
+            supabase,
+            source_type: "subscription",
+            reader_id: reader.id,
+            creator_id: resolvedCreatorId,
+            story_id: targetType === "story" ? targetId : null,
+            gross: price,
+            target_type: targetType,
+            expires_at,
+          });
+        }
+      }
+
+      // Local store for immediate UX feedback
       subscribe(targetType, targetId);
     }
     setTimeout(() => setOpen(false), 1500);
