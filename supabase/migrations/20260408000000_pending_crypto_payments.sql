@@ -17,8 +17,9 @@ create type pending_crypto_status as enum (
 
 create table pending_crypto_payments (
   id uuid primary key default gen_random_uuid(),
-  -- The order_id sent to NowPayments. We use the same UUID as our primary key.
-  order_id uuid not null unique,
+  -- The order_id sent to NowPayments. Separate UUID from `id` so internal
+  -- and external references are distinct.
+  order_id uuid not null unique default gen_random_uuid(),
   -- Linking back to Erovel's domain entities
   reader_id uuid not null references profiles(id) on delete cascade,
   creator_id uuid not null references profiles(id) on delete cascade,
