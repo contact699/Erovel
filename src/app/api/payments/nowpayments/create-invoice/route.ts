@@ -99,7 +99,10 @@ export async function POST(request: Request) {
     invoice = await createInvoice({
       price_amount: body.amount,
       price_currency: "usd",
-      // pay_currency intentionally null — let customer choose any supported coin
+      // Lock to USDC on Polygon — matches the payout wallet so there's no
+      // conversion (zero spread, no minimum-amount issues, instant settlement).
+      // BTC and other coins have high minimums (~$15-50) that would block tips.
+      pay_currency: "usdcmatic",
       ipn_callback_url: ipnUrl,
       order_id: pending.order_id,
       order_description: `Tip on Erovel`,
