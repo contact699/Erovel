@@ -142,7 +142,7 @@ export default function CreatorProfilePage() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <FollowButton creatorId={creator.id} creatorName={creator.display_name} />
-            <TipButton creatorName={creator.display_name} />
+            <TipButton creatorId={creator.id} creatorName={creator.display_name} />
             <SubscribeButton targetType="creator" targetName={creator.display_name} creatorId={creator.id} price={creator.subscription_price || 9.99} />
             <ReportButton targetType="profile" targetId={creator.id} />
           </div>

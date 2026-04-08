@@ -394,7 +394,9 @@ export default function ChapterPage() {
                     creatorId={story.creator_id}
                   />
                   <TipButton
+                    creatorId={story.creator_id}
                     creatorName={story.creator?.display_name || ""}
+                    storyId={story.id}
                     storyTitle={story.title}
                     variant="button"
                   />
@@ -520,7 +522,9 @@ export default function ChapterPage() {
             </button>
             <ShareButton title={`${story.title} - Ch. ${chapter.chapter_number}`} />
             <TipButton
+              creatorId={story.creator_id}
               creatorName={story.creator?.display_name || ""}
+              storyId={story.id}
               storyTitle={story.title}
               variant="icon"
             />

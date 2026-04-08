@@ -370,7 +370,9 @@ export default function StoryPage() {
             )}
 
             <TipButton
+              creatorId={story.creator_id}
               creatorName={story.creator?.display_name || ""}
+              storyId={story.id}
               storyTitle={story.title}
             />
 

@@ -8,21 +8,45 @@ import { formatCurrency } from "@/lib/utils";
 import { DollarSign, Heart } from "lucide-react";
 
 interface TipButtonProps {
+  creatorId: string;
   creatorName: string;
+  storyId?: string;
   storyTitle?: string;
   variant?: "button" | "icon";
 }
 
-export function TipButton({ creatorName, storyTitle, variant = "button" }: TipButtonProps) {
+export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant = "button" }: TipButtonProps) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [sent, setSent] = useState(false);
 
-  function handleSend() {
+  async function handleSend() {
     const tipAmount = amount || parseFloat(customAmount);
     if (!tipAmount || tipAmount < 1) return;
-    // In production: redirect to CCBill
+
+    // Wire through the splits engine. CCBill integration replaces this
+    // with a redirect → webhook flow that calls createPaymentWithSplits
+    // server-side. For now we exercise the engine directly to validate
+    // the resolver and snapshot pipeline.
+    const { createClient } = await import("@/lib/supabase/client");
+    const { useAuthStore } = await import("@/store/auth-store");
+    const supabase = createClient();
+    const reader = useAuthStore.getState().user;
+
+    if (supabase && reader) {
+      const { createPaymentWithSplits } = await import("@/lib/payments");
+      await createPaymentWithSplits({
+        supabase,
+        source_type: "tip",
+        reader_id: reader.id,
+        creator_id: creatorId,
+        story_id: storyId ?? null,
+        gross: tipAmount,
+        currency: "USD",
+      });
+    }
+
     setSent(true);
     setTimeout(() => {
       setOpen(false);
