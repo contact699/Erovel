@@ -30,7 +30,10 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/payments/nowpayments/create-invoice", {
+      // BTCPay is the active crypto path. NowPayments code is left in place
+      // at /api/payments/nowpayments/create-invoice for fallback if BTCPay
+      // ever has issues, but is not currently wired to the UI.
+      const response = await fetch("/api/payments/btcpay/create-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
