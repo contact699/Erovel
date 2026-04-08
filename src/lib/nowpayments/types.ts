@@ -54,6 +54,13 @@ export interface CreateInvoiceResponse {
   is_fixed_rate: boolean;
 }
 
+/** Response from GET /v1/min-amount */
+export interface MinAmountResponse {
+  currency_from: string;
+  currency_to: string;
+  min_amount: number;
+}
+
 /** Body of an IPN webhook POST from NowPayments */
 export interface IpnPaymentPayload {
   payment_id: number;

@@ -1,6 +1,7 @@
 import type {
   CreateInvoiceRequest,
   CreateInvoiceResponse,
+  MinAmountResponse,
 } from "./types";
 
 const API_BASE = process.env.NOWPAYMENTS_API_BASE_URL ?? "https://api.nowpayments.io/v1";
@@ -51,6 +52,55 @@ export async function createInvoice(
   }
 
   const data = (await response.json()) as CreateInvoiceResponse;
+  return data;
+}
+
+interface GetMinAmountInput {
+  currency_from: string;
+  currency_to: string;
+  is_fixed_rate?: boolean;
+  is_fee_paid_by_user?: boolean;
+}
+
+/**
+ * Fetch the current NOWPayments minimum amount for a currency pair.
+ * Used to block impossible checkout attempts before creating invoices.
+ */
+export async function getMinAmount(
+  input: GetMinAmountInput
+): Promise<MinAmountResponse> {
+  const params = new URLSearchParams({
+    currency_from: input.currency_from,
+    currency_to: input.currency_to,
+  });
+
+  if (typeof input.is_fixed_rate === "boolean") {
+    params.set("is_fixed_rate", String(input.is_fixed_rate));
+  }
+
+  if (typeof input.is_fee_paid_by_user === "boolean") {
+    params.set("is_fee_paid_by_user", String(input.is_fee_paid_by_user));
+  }
+
+  const response = await fetch(`${API_BASE}/min-amount?${params.toString()}`, {
+    headers: {
+      "x-api-key": getApiKey(),
+    },
+  });
+
+  if (!response.ok) {
+    let errorBody: string;
+    try {
+      errorBody = await response.text();
+    } catch {
+      errorBody = "<unreadable>";
+    }
+    throw new Error(
+      `NowPayments getMinAmount failed: ${response.status} ${response.statusText} — ${errorBody}`
+    );
+  }
+
+  const data = (await response.json()) as MinAmountResponse;
   return data;
 }
 

@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { createInvoice } from "@/lib/nowpayments/client";
+import { createInvoice, getMinAmount } from "@/lib/nowpayments/client";
 
 interface RequestBody {
   creator_id: string;
   story_id?: string;
   amount: number;
 }
+
+const PRICE_CURRENCY = "usd";
+const PAY_CURRENCY = "usdcmatic";
+const USE_FIXED_RATE = true;
+const FEE_PAID_BY_USER = true;
 
 export async function POST(request: Request) {
   // 1. Authenticate the reader
@@ -67,7 +72,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Creator not found" }, { status: 404 });
   }
 
-  // 5. Insert the pending row first — this generates the order_id we send to NowPayments
+  // 5. Guardrail: block requests under the live NOWPayments minimum for this pair.
+  // NOTE: /invoice checkout flow behaves as fixed-rate for this account, so we
+  // query min-amount with is_fixed_rate=true to match real checkout behavior.
+  let minAmount: number | null = null;
+  try {
+    const minRes = await getMinAmount({
+      currency_from: PRICE_CURRENCY,
+      currency_to: PAY_CURRENCY,
+      is_fixed_rate: USE_FIXED_RATE,
+      is_fee_paid_by_user: FEE_PAID_BY_USER,
+    });
+    const parsed = Number(minRes.min_amount);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      minAmount = parsed;
+    }
+  } catch (err) {
+    // Non-fatal: we'll still try invoice creation and handle any API errors there.
+    console.warn("[nowpayments-create-invoice] failed to fetch min amount", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  if (minAmount !== null && body.amount < minAmount) {
+    return NextResponse.json(
+      {
+        error: `Minimum crypto tip is $${minAmount.toFixed(2)} right now.`,
+        min_amount: minAmount,
+        currency: PRICE_CURRENCY.toUpperCase(),
+      },
+      { status: 400 }
+    );
+  }
+
+  // 6. Insert the pending row first — this generates the order_id we send to NowPayments
   const { data: pending, error: pendingError } = await supabase
     .from("pending_crypto_payments")
     .insert({
@@ -88,7 +126,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 6. Create the NowPayments invoice
+  // 7. Create the NowPayments invoice
   const ipnUrl = process.env.NOWPAYMENTS_IPN_CALLBACK_URL;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://erovel.com";
   const successUrl = `${baseUrl}/payments/success?id=${pending.order_id}`;
@@ -98,25 +136,15 @@ export async function POST(request: Request) {
   try {
     invoice = await createInvoice({
       price_amount: body.amount,
-      // Price in USD (the merchant's display currency), customer pays in
-      // USDC on Polygon (which matches the payout wallet so no real conversion
-      // happens). The "$19.28 minimum on the conversion path" reported by
-      // /v1/min-amount is misleading — it's a generic floor that doesn't
-      // actually fire when in==out currency. Tested with usdcmatic pricing
-      // instead (variant A in 2026-04-08 debug session) and the hosted
-      // checkout broke worse (empty currency dropdown), so reverting to USD
-      // pricing as the cleaner path. The actual blocker is a NowPayments
-      // account-level issue where the hosted checkout refuses to quote
-      // amounts regardless of code parameters.
-      price_currency: "usd",
-      pay_currency: "usdcmatic",
+      price_currency: PRICE_CURRENCY,
+      pay_currency: PAY_CURRENCY,
       ipn_callback_url: ipnUrl,
       order_id: pending.order_id,
       order_description: `Tip on Erovel`,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      is_fixed_rate: true,
-      is_fee_paid_by_user: true,
+      is_fixed_rate: USE_FIXED_RATE,
+      is_fee_paid_by_user: FEE_PAID_BY_USER,
     });
   } catch (err) {
     // Mark the pending row as failed and return a generic error
@@ -124,13 +152,51 @@ export async function POST(request: Request) {
       .from("pending_crypto_payments")
       .update({ status: "failed" })
       .eq("id", pending.id);
+
+    const message = err instanceof Error ? err.message : String(err);
+    const tooSmall =
+      message.includes("amountTo is too small") ||
+      message.includes("amountFrom is too small");
+
+    if (tooSmall) {
+      let fallbackMin = minAmount;
+      if (fallbackMin === null) {
+        try {
+          const minRes = await getMinAmount({
+            currency_from: PRICE_CURRENCY,
+            currency_to: PAY_CURRENCY,
+            is_fixed_rate: USE_FIXED_RATE,
+            is_fee_paid_by_user: FEE_PAID_BY_USER,
+          });
+          const parsed = Number(minRes.min_amount);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            fallbackMin = parsed;
+          }
+        } catch {
+          // Ignore fallback failure and return a generic threshold error.
+        }
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            fallbackMin !== null
+              ? `Minimum crypto tip is $${fallbackMin.toFixed(2)} right now.`
+              : "Tip amount is below NOWPayments minimum for this currency pair.",
+          min_amount: fallbackMin,
+          currency: PRICE_CURRENCY.toUpperCase(),
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to create invoice" },
       { status: 502 }
     );
   }
 
-  // 7. Update the pending row with the invoice details
+  // 8. Update the pending row with the invoice details
   await supabase
     .from("pending_crypto_payments")
     .update({
@@ -140,7 +206,7 @@ export async function POST(request: Request) {
     })
     .eq("id", pending.id);
 
-  // 8. Return the invoice_url to the frontend for redirect
+  // 9. Return the invoice_url to the frontend for redirect
   return NextResponse.json({
     invoice_url: invoice.invoice_url,
     order_id: pending.order_id,
