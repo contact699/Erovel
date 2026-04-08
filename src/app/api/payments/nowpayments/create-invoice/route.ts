@@ -98,10 +98,12 @@ export async function POST(request: Request) {
   try {
     invoice = await createInvoice({
       price_amount: body.amount,
-      price_currency: "usd",
-      // Lock to USDC on Polygon — matches the payout wallet so there's no
-      // conversion (zero spread, no minimum-amount issues, instant settlement).
-      // BTC and other coins have high minimums (~$15-50) that would block tips.
+      // Price the invoice directly in USDCMATIC (1 USDC ≈ 1 USD for tipping
+      // purposes). Pricing in "usd" forces NowPayments through a USD→USDC
+      // conversion path with a $19.28 minimum, even though no actual exchange
+      // happens (USDC and USD are 1:1). Pricing in usdcmatic skips the
+      // conversion entirely and drops the minimum to ~0.12 USDC.
+      price_currency: "usdcmatic",
       pay_currency: "usdcmatic",
       ipn_callback_url: ipnUrl,
       order_id: pending.order_id,
