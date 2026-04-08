@@ -2,7 +2,15 @@ import type { Category } from "./types";
 
 export const PLATFORM_NAME = "Erovel";
 export const PLATFORM_TAGLINE = "Stories that ignite";
-export const PLATFORM_CUT = 0.15; // 15%
+/**
+ * Platform fee applied to every tip and subscription, as a percentage of gross.
+ *
+ * Phase 1: 0 (ships engine without changing economics for existing creators).
+ * Phase 4 (post-rollout verification): set to 15.
+ *
+ * See docs/plans/2026-04-07-splits-engine-v1-design.md for the rollout plan.
+ */
+export const PLATFORM_FEE_PCT = 0;
 
 export const TIP_PRESETS = [2, 5, 10, 20];
 export const MIN_PAYOUT = 50;
