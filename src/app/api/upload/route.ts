@@ -4,7 +4,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateId } from "@/lib/utils";
 import { moderateImage } from "@/lib/moderation";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_DEFAULT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_VIDEO_FILE_SIZE = 250 * 1024 * 1024; // 250MB
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -38,8 +39,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File type not allowed" }, { status: 400 });
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File too large (max 50MB)" }, { status: 400 });
+    const isVideo = file.type.startsWith("video/");
+    const maxFileSize = isVideo ? MAX_VIDEO_FILE_SIZE : MAX_DEFAULT_FILE_SIZE;
+    const maxFileSizeLabel = isVideo ? "250MB" : "50MB";
+
+    if (file.size > maxFileSize) {
+      return NextResponse.json(
+        { error: `File too large (max ${maxFileSizeLabel})` },
+        { status: 400 }
+      );
     }
 
     // Generate unique filename

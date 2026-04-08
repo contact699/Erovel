@@ -9,6 +9,7 @@ interface MediaUploadProps {
   onUpload: (url: string, file: File) => void;
   accept?: string;
   maxSize?: number;
+  videoMaxSize?: number;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export function MediaUpload({
   onUpload,
   accept = "image/*,video/*,.gif",
   maxSize = 50 * 1024 * 1024,
+  videoMaxSize = 250 * 1024 * 1024,
   className,
 }: MediaUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
@@ -29,13 +31,22 @@ export function MediaUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const acceptsVideo = accept.includes("video/");
+  const helperText = acceptsVideo
+    ? videoMaxSize === maxSize
+      ? `Files up to ${formatFileSize(maxSize)}`
+      : `Files up to ${formatFileSize(maxSize)}. Videos up to ${formatFileSize(videoMaxSize)}`
+    : accept.includes("image/")
+      ? `Images up to ${formatFileSize(maxSize)}`
+      : `Files up to ${formatFileSize(maxSize)}`;
 
   const handleFile = useCallback(
     (f: File) => {
       setError(null);
 
-      if (f.size > maxSize) {
-        setError(`File too large. Maximum size is ${formatFileSize(maxSize)}.`);
+      const fileMaxSize = f.type.startsWith("video/") ? videoMaxSize : maxSize;
+      if (f.size > fileMaxSize) {
+        setError(`File too large. Maximum size is ${formatFileSize(fileMaxSize)}.`);
         return;
       }
 
@@ -44,7 +55,7 @@ export function MediaUpload({
       setPreview(url);
       onUpload(url, f);
     },
-    [maxSize, onUpload]
+    [maxSize, onUpload, videoMaxSize]
   );
 
   const handleDrop = useCallback(
@@ -106,7 +117,7 @@ export function MediaUpload({
               Drop a file here, or click to browse
             </p>
             <p className="text-xs text-muted mt-1">
-              Images, GIFs, and videos up to {formatFileSize(maxSize)}
+              {helperText}
             </p>
           </div>
         </div>
