@@ -20,6 +20,41 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
   const [amount, setAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCryptoPay() {
+    const tipAmount = amount || parseFloat(customAmount);
+    if (!tipAmount || tipAmount < 1) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/payments/nowpayments/create-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creator_id: creatorId,
+          story_id: storyId,
+          amount: tipAmount,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to create crypto payment. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      const { invoice_url } = await response.json();
+      // Redirect to NowPayments hosted checkout
+      window.location.href = invoice_url;
+    } catch {
+      setError("Network error. Please try again.");
+      setSubmitting(false);
+    }
+  }
 
   async function handleSend() {
     const tipAmount = amount || parseFloat(customAmount);
@@ -116,6 +151,21 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
             <Button onClick={handleSend} className="w-full" disabled={!amount && !customAmount}>
               Send {amount ? formatCurrency(amount) : customAmount ? formatCurrency(parseFloat(customAmount)) : "Tip"}
             </Button>
+
+            <div className="text-center text-xs text-muted">— or —</div>
+
+            <Button
+              variant="secondary"
+              onClick={handleCryptoPay}
+              className="w-full"
+              disabled={submitting || (!amount && !customAmount)}
+            >
+              Pay with crypto
+            </Button>
+
+            {error && (
+              <p className="text-xs text-red-400 text-center">{error}</p>
+            )}
           </div>
         )}
       </Modal>
