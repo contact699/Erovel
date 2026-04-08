@@ -10,7 +10,7 @@ export const PLATFORM_TAGLINE = "Stories that ignite";
  *
  * See docs/plans/2026-04-07-splits-engine-v1-design.md for the rollout plan.
  */
-export const PLATFORM_FEE_PCT = 0;
+export const PLATFORM_FEE_PCT = 15;
 
 export const TIP_PRESETS = [2, 5, 10, 20];
 export const MIN_PAYOUT = 50;
