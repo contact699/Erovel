@@ -253,3 +253,50 @@ export interface StoryAnalytics {
   comments: number;
   bookmarks: number;
 }
+
+// ============================================================
+// SPLITS ENGINE
+// ============================================================
+
+export type PayeeType = "profile" | "platform" | "external";
+
+export interface Payee {
+  id: string;
+  type: PayeeType;
+  profile_id: string | null;
+  label: string | null;
+  payout_method: PayoutMethod | null;
+  payout_email: string | null;
+  payout_wallet_address: string | null;
+  created_at: string;
+}
+
+export type SplitSubjectType = "creator" | "story";
+
+export interface SplitRule {
+  id: string;
+  subject_type: SplitSubjectType;
+  subject_id: string;
+  payee_id: string;
+  basis_pct: number | null;     // e.g. 15.00 = 15%
+  basis_fixed: number | null;   // alt: fixed USD amount
+  priority: number;
+  created_at: string;
+}
+
+export type SplitBasis = "pct" | "fixed" | "residual";
+
+export interface SplitEntry {
+  payee_id: string;
+  amount: number;
+  basis: SplitBasis;
+  pct?: number;       // present when basis === 'pct'
+}
+
+export interface PayeeBalance {
+  payee_id: string;
+  gross_earned: number;
+  total_paid_out: number;
+  available: number;
+  updated_at: string;
+}
