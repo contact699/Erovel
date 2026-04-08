@@ -275,8 +275,18 @@ export function ContentRightsForm({
         );
         resetForm();
       }
-    } catch {
-      toast("error", "Failed to create declaration");
+    } catch (err) {
+      // Surface the real error so creators (and ops) can see what's wrong
+      // instead of the generic "Failed to create declaration" — previously
+      // the catch was silent and made debugging impossible.
+      console.error("Failed to create declaration:", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "Unknown error";
+      toast("error", `Failed to create declaration: ${message}`);
     } finally {
       setSaving(false);
     }

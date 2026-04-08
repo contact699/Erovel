@@ -649,13 +649,32 @@ export async function createDeclaration(declaration: {
   grace_deadline?: string;
 }) {
   const supabase = createClient();
-  if (!supabase) return null;
+  if (!supabase) {
+    console.error("[createDeclaration] Supabase client not configured");
+    throw new Error("Database client not configured");
+  }
   const { data, error } = await supabase
     .from("content_rights_declarations")
     .insert(declaration)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    // Log the full Supabase error with the input that triggered it,
+    // so server logs / browser console show what's actually wrong.
+    // Don't log evidence_urls fully — they may contain user-uploaded URLs.
+    console.error("[createDeclaration] insert failed:", {
+      error: { message: error.message, code: error.code, details: error.details, hint: error.hint },
+      input: {
+        creator_id: declaration.creator_id,
+        declaration_type: declaration.declaration_type,
+        evidence_tier: declaration.evidence_tier,
+        evidence_url_count: declaration.evidence_urls?.length ?? 0,
+        badge_level: declaration.badge_level,
+        status: declaration.status,
+      },
+    });
+    throw error;
+  }
   return data;
 }
 
