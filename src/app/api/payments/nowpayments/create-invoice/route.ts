@@ -98,12 +98,17 @@ export async function POST(request: Request) {
   try {
     invoice = await createInvoice({
       price_amount: body.amount,
-      // Price the invoice directly in USDCMATIC (1 USDC ≈ 1 USD for tipping
-      // purposes). Pricing in "usd" forces NowPayments through a USD→USDC
-      // conversion path with a $19.28 minimum, even though no actual exchange
-      // happens (USDC and USD are 1:1). Pricing in usdcmatic skips the
-      // conversion entirely and drops the minimum to ~0.12 USDC.
-      price_currency: "usdcmatic",
+      // Price in USD (the merchant's display currency), customer pays in
+      // USDC on Polygon (which matches the payout wallet so no real conversion
+      // happens). The "$19.28 minimum on the conversion path" reported by
+      // /v1/min-amount is misleading — it's a generic floor that doesn't
+      // actually fire when in==out currency. Tested with usdcmatic pricing
+      // instead (variant A in 2026-04-08 debug session) and the hosted
+      // checkout broke worse (empty currency dropdown), so reverting to USD
+      // pricing as the cleaner path. The actual blocker is a NowPayments
+      // account-level issue where the hosted checkout refuses to quote
+      // amounts regardless of code parameters.
+      price_currency: "usd",
       pay_currency: "usdcmatic",
       ipn_callback_url: ipnUrl,
       order_id: pending.order_id,
