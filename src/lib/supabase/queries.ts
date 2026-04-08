@@ -648,34 +648,25 @@ export async function createDeclaration(declaration: {
   status: string;
   grace_deadline?: string;
 }) {
-  const supabase = createClient();
-  if (!supabase) {
-    console.error("[createDeclaration] Supabase client not configured");
-    throw new Error("Database client not configured");
+  // POSTs to /api/declarations rather than inserting directly via the
+  // browser Supabase client. The server route handles auth via cookies
+  // (more resilient than the in-memory browser session) and uses the
+  // service-role client to insert, bypassing RLS issues that happen
+  // when sessions expire during long-running operations like file uploads.
+  const response = await fetch("/api/declarations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(declaration),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const message = data.error || `Failed to create declaration (${response.status})`;
+    throw new Error(message);
   }
-  const { data, error } = await supabase
-    .from("content_rights_declarations")
-    .insert(declaration)
-    .select()
-    .single();
-  if (error) {
-    // Log the full Supabase error with the input that triggered it,
-    // so server logs / browser console show what's actually wrong.
-    // Don't log evidence_urls fully — they may contain user-uploaded URLs.
-    console.error("[createDeclaration] insert failed:", {
-      error: { message: error.message, code: error.code, details: error.details, hint: error.hint },
-      input: {
-        creator_id: declaration.creator_id,
-        declaration_type: declaration.declaration_type,
-        evidence_tier: declaration.evidence_tier,
-        evidence_url_count: declaration.evidence_urls?.length ?? 0,
-        badge_level: declaration.badge_level,
-        status: declaration.status,
-      },
-    });
-    throw error;
-  }
-  return data;
+
+  const data = await response.json();
+  return data.declaration;
 }
 
 export async function updateDeclaration(id: string, updates: Record<string, unknown>) {
