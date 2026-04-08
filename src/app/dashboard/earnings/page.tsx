@@ -107,8 +107,29 @@ export default function EarningsPage() {
       const fetchedTips: TipRow[] = (tipsData as TipRow[] | null) ?? [];
       setTips(fetchedTips);
 
-      // Calculate total earnings from all tips
-      const total = fetchedTips.reduce((sum, t) => sum + (t.amount ?? 0), 0);
+      // Total earnings now come from payee_balances (the splits engine
+      // single source of truth), not by summing tip amounts directly.
+      // This generalizes to platform fees and split revenue automatically.
+      const { data: payeeRow } = await supabase
+        .from("payees")
+        .select("id")
+        .eq("profile_id", user.id)
+        .eq("type", "profile")
+        .single();
+
+      let total = 0;
+      let availableBalance = 0;
+      if (payeeRow) {
+        const { data: balanceRow } = await supabase
+          .from("payee_balances")
+          .select("gross_earned, available")
+          .eq("payee_id", payeeRow.id)
+          .single();
+        if (balanceRow) {
+          total = Number(balanceRow.gross_earned) || 0;
+          availableBalance = Number(balanceRow.available) || 0;
+        }
+      }
       setTotalEarnings(total);
 
       // Tips this month
@@ -146,11 +167,9 @@ export default function EarningsPage() {
         (payoutsData as PayoutRow[] | null) ?? [];
       setPayouts(fetchedPayouts);
 
-      // Pending payout = total earnings minus completed/processing payouts
-      const paidOut = fetchedPayouts
-        .filter((p) => p.status === "completed" || p.status === "processing")
-        .reduce((sum, p) => sum + (p.amount ?? 0), 0);
-      setPendingPayout(Math.max(0, total - paidOut));
+      // Pending payout comes directly from payee_balances.available
+      // (gross_earned - total_paid_out, computed by trigger).
+      setPendingPayout(Math.max(0, availableBalance));
 
       // Fetch active subscriber count
       const { count } = await supabase
