@@ -122,7 +122,7 @@ export default function AdminStoryDetailPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Back link */}
       <Link
         href="/admin/stories"
