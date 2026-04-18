@@ -7,8 +7,21 @@ import { useThemeStore } from "@/store/theme-store";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
-import { Search, Moon, Sun, Menu, X, BookOpen, PenTool } from "lucide-react";
-import { useState } from "react";
+import {
+  Search,
+  Moon,
+  Sun,
+  Menu,
+  X,
+  BookOpen,
+  PenTool,
+  User,
+  LayoutDashboard,
+  ShieldCheck,
+  LogOut,
+  Plus,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { PLATFORM_NAME } from "@/lib/constants";
 
 export function Header() {
@@ -18,6 +31,27 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close the profile dropdown on outside click or Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   return (
     <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-border">
@@ -33,14 +67,8 @@ export function Header() {
           <Link href="/browse" className="text-muted hover:text-foreground transition-colors">
             Browse
           </Link>
-          <Link href="/browse/romance" className="text-muted hover:text-foreground transition-colors">
-            Romance
-          </Link>
-          <Link href="/browse/fantasy" className="text-muted hover:text-foreground transition-colors">
-            Fantasy
-          </Link>
-          <Link href="/browse?format=chat" className="text-muted hover:text-foreground transition-colors">
-            Chat Stories
+          <Link href="/creators" className="text-muted hover:text-foreground transition-colors">
+            Creators
           </Link>
         </nav>
 
@@ -68,36 +96,114 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <button onClick={() => setSearchOpen(true)} className="text-muted hover:text-foreground p-2 cursor-pointer">
+            <button onClick={() => setSearchOpen(true)} className="text-muted hover:text-foreground p-2 cursor-pointer" aria-label="Search">
               <Search size={18} />
             </button>
           )}
 
           {isAuthenticated && <NotificationBell />}
 
-          <button onClick={toggleTheme} className="text-muted hover:text-foreground p-2 cursor-pointer">
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
           {isAuthenticated && user ? (
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2">
               {user.role === "creator" && (
-                <Link href="/dashboard">
+                <Link href="/dashboard/stories/new">
                   <Button variant="accent" size="sm">
-                    <PenTool size={14} />
-                    Dashboard
+                    <Plus size={14} />
+                    Create
                   </Button>
                 </Link>
               )}
-              <Link href={`/creator/${user.username}`}>
-                <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
-              </Link>
-              <button onClick={logout} className="text-sm text-muted hover:text-foreground cursor-pointer">
-                Logout
-              </button>
+
+              {/* Profile dropdown */}
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-label="Account menu"
+                >
+                  <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
+                </button>
+
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-surface shadow-lg py-1 z-50"
+                  >
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-sm font-medium truncate">{user.display_name}</p>
+                      <p className="text-xs text-muted truncate">@{user.username}</p>
+                    </div>
+
+                    <Link
+                      href={`/creator/${user.username}`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                      role="menuitem"
+                    >
+                      <User size={14} />
+                      My Profile
+                    </Link>
+
+                    {user.role === "creator" && (
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                        role="menuitem"
+                      >
+                        <LayoutDashboard size={14} />
+                        Dashboard
+                      </Link>
+                    )}
+
+                    {user.role === "admin" && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                        role="menuitem"
+                      >
+                        <ShieldCheck size={14} />
+                        Admin Panel
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        toggleTheme();
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+                      role="menuitem"
+                    >
+                      {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                      {theme === "dark" ? "Light mode" : "Dark mode"}
+                    </button>
+
+                    <div className="border-t border-border mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+                        role="menuitem"
+                      >
+                        <LogOut size={14} />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-2">
+              <button onClick={toggleTheme} className="text-muted hover:text-foreground p-2 cursor-pointer" aria-label="Toggle theme">
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
               <Link href="/login">
                 <Button variant="ghost" size="sm">Log in</Button>
               </Link>
@@ -111,6 +217,7 @@ export function Header() {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden text-muted hover:text-foreground p-2 cursor-pointer"
+            aria-label="Menu"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -119,40 +226,117 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-surface p-4 space-y-3">
-          <Link href="/browse" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
-            Browse All
+        <div className="md:hidden border-t border-border bg-surface p-4 space-y-1">
+          {isAuthenticated && user && (
+            <div className="flex items-center gap-3 px-2 py-3 border-b border-border mb-2">
+              <Avatar src={user.avatar_url} name={user.display_name} size="sm" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{user.display_name}</p>
+                <p className="text-xs text-muted truncate">@{user.username}</p>
+              </div>
+            </div>
+          )}
+
+          <Link
+            href="/browse"
+            className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <BookOpen size={16} />
+            Browse
           </Link>
-          <Link href="/browse/romance" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
-            Romance
+          <Link
+            href="/creators"
+            className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <User size={16} />
+            Creators
           </Link>
-          <Link href="/browse/fantasy" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
-            Fantasy
-          </Link>
-          <Link href="/browse?format=chat" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
-            Chat Stories
-          </Link>
-          <hr className="border-border" />
+
           {isAuthenticated && user ? (
             <>
+              <div className="border-t border-border my-2" />
               {user.role === "creator" && (
-                <Link href="/dashboard" className="block text-sm text-accent" onClick={() => setMobileMenuOpen(false)}>
-                  Creator Dashboard
+                <>
+                  <Link
+                    href="/dashboard/stories/new"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-accent hover:bg-surface-hover transition-colors"
+                  >
+                    <Plus size={16} />
+                    Create story
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                  >
+                    <LayoutDashboard size={16} />
+                    Dashboard
+                  </Link>
+                </>
+              )}
+              {user.role === "admin" && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                >
+                  <ShieldCheck size={16} />
+                  Admin Panel
                 </Link>
               )}
-              <Link href={`/creator/${user.username}`} className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
+              <Link
+                href={`/creator/${user.username}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
+                <User size={16} />
                 My Profile
               </Link>
-              <button onClick={() => { logout(); setMobileMenuOpen(false); }} className="block text-sm text-muted hover:text-foreground cursor-pointer">
+              <button
+                onClick={() => {
+                  toggleTheme();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                <LogOut size={16} />
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" className="block text-sm text-muted hover:text-foreground" onClick={() => setMobileMenuOpen(false)}>
+              <div className="border-t border-border my-2" />
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
                 Log in
               </Link>
-              <Link href="/signup" className="block text-sm text-accent font-medium" onClick={() => setMobileMenuOpen(false)}>
+              <Link
+                href="/signup"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-2 py-2 rounded-md text-sm text-accent font-medium hover:bg-surface-hover transition-colors"
+              >
                 Sign up
               </Link>
             </>
