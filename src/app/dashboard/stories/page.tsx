@@ -8,7 +8,7 @@ import type { Story } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatDate } from "@/lib/utils";
-import { Plus, BookOpen, Eye, Trash2, Edit } from "lucide-react";
+import { Plus, Sparkles, BookOpen, Eye, Trash2, Edit } from "lucide-react";
 
 export default function DashboardStoriesPage() {
   const { user } = useAuthStore();
@@ -46,9 +46,22 @@ export default function DashboardStoriesPage() {
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Your Stories</h1>
-        <Link href="/dashboard/stories/new">
-          <Button><Plus size={16} /> New Story</Button>
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Link href="/dashboard/stories/new">
+            <Button variant="secondary">
+              <Plus size={14} />
+              Start blank
+            </Button>
+          </Link>
+          {user?.is_verified && (
+            <Link href="/dashboard/stories/new-ai">
+              <Button variant="accent">
+                <Sparkles size={14} />
+                Create with AI
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">
