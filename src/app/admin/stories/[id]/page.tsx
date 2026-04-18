@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ChatReader } from "@/components/story/chat-reader";
 import { GalleryReader } from "@/components/story/gallery-reader";
 import { ProseReader } from "@/components/story/prose-reader";
+import { effectiveStoryFormat } from "@/lib/story-format";
 import {
   ArrowLeft,
   Loader2,
@@ -245,19 +246,22 @@ export default function AdminStoryDetailPage() {
                 </button>
 
                 {/* Chapter content */}
-                {isExpanded && contentJson != null && (
-                  <div className="border-t border-border p-5">
-                    <div className="max-w-3xl mx-auto">
-                      {story.format === "chat" && chatContent ? (
-                        <ChatReader content={chatContent} />
-                      ) : story.format === "gallery" && chatContent ? (
-                        <GalleryReader content={chatContent} />
-                      ) : (
-                        <ProseReader content={contentJson as Record<string, unknown>} />
-                      )}
+                {isExpanded && contentJson != null && (() => {
+                  const fmt = effectiveStoryFormat(story.format, chatContent);
+                  return (
+                    <div className="border-t border-border p-5">
+                      <div className="max-w-3xl mx-auto">
+                        {fmt === "chat" && chatContent ? (
+                          <ChatReader content={chatContent} />
+                        ) : fmt === "gallery" && chatContent ? (
+                          <GalleryReader content={chatContent} />
+                        ) : (
+                          <ProseReader content={contentJson as Record<string, unknown>} />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {isExpanded && contentJson == null && (
                   <div className="border-t border-border p-5 text-center text-sm text-muted">

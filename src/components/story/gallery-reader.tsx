@@ -38,7 +38,10 @@ export function GalleryReader({ content, teaserLimit }: GalleryReaderProps) {
 
   return (
     <>
-      <div className="max-w-2xl mx-auto space-y-4 py-6">
+      {/* Mobile edge-to-edge; desktop caps at ~3xl for comfortable reading.
+          Negative horizontal margins on small screens cancel the parent's
+          px-4 so images truly fill the viewport. */}
+      <div className="-mx-4 sm:mx-auto max-w-3xl space-y-6 sm:space-y-8 py-4 sm:py-6">
         {visibleMessages.map((msg) => (
           <div key={msg.id}>
             {/* Image or GIF */}
@@ -51,13 +54,13 @@ export function GalleryReader({ content, teaserLimit }: GalleryReaderProps) {
                   <img
                     src={msg.media_url}
                     alt={msg.text || "Gallery image"}
-                    className="w-full rounded-lg"
+                    className="w-full sm:rounded-lg"
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.src = "";
                       e.currentTarget.alt = "Image could not be loaded";
                       e.currentTarget.className =
-                        "w-full h-32 rounded-lg bg-surface-hover flex items-center justify-center text-muted text-sm";
+                        "w-full h-32 sm:rounded-lg bg-surface-hover flex items-center justify-center text-muted text-sm";
                     }}
                   />
                 </button>
@@ -68,7 +71,7 @@ export function GalleryReader({ content, teaserLimit }: GalleryReaderProps) {
               <video
                 src={msg.media_url}
                 controls
-                className="w-full rounded-lg"
+                className="w-full sm:rounded-lg"
               >
                 <track kind="captions" />
               </video>
@@ -76,7 +79,7 @@ export function GalleryReader({ content, teaserLimit }: GalleryReaderProps) {
 
             {/* Caption */}
             {msg.text && (
-              <p className="text-sm text-muted text-center mt-1 mb-6">
+              <p className="text-sm text-muted text-center mt-2 px-4 sm:px-0">
                 {msg.text}
               </p>
             )}

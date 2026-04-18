@@ -11,6 +11,7 @@ import { SubscribeButton } from "@/components/monetization/subscribe-button";
 import { ChatReader } from "@/components/story/chat-reader";
 import { GalleryReader } from "@/components/story/gallery-reader";
 import { ProseReader } from "@/components/story/prose-reader";
+import { effectiveStoryFormat } from "@/lib/story-format";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import { useAuthStore } from "@/store/auth-store";
 import { ReportButton } from "@/components/ui/report-button";
@@ -285,6 +286,9 @@ export default function ChapterPage() {
   // Extract content from the chapter_content join
   const contentJson = chapter.content?.content_json;
   const chatContent = (story.format === "chat" || story.format === "gallery") && contentJson ? (contentJson as ChatContent) : null;
+  // Imports consolidated to a single unnamed speaker render better as galleries
+  // than as chat bubbles — upgrade "chat" to "gallery" in that case.
+  const displayFormat = effectiveStoryFormat(story.format, chatContent);
 
   return (
     <div className="min-h-screen bg-background">
@@ -330,8 +334,8 @@ export default function ChapterPage() {
           {chapter.title}
         </h1>
         <div className="flex items-center justify-center gap-2 mt-3">
-          <Badge variant={story.format === "chat" ? "accent" : "default"}>
-            {story.format === "chat" ? "Sext Story" : story.format === "gallery" ? "Gallery" : "Illustrated Story"}
+          <Badge variant={displayFormat === "chat" ? "accent" : "default"}>
+            {displayFormat === "chat" ? "Sext Story" : displayFormat === "gallery" ? "Gallery" : "Illustrated Story"}
           </Badge>
           {isGatedChapter && (
             <Badge variant="accent">
@@ -357,9 +361,9 @@ export default function ChapterPage() {
           // Gated: show teaser then blur + subscribe prompt
           <div className="relative">
             {/* Teaser content */}
-            {story.format === "chat" && chatContent ? (
+            {displayFormat === "chat" && chatContent ? (
               <ChatReader content={chatContent} teaserLimit={5} />
-            ) : story.format === "gallery" && chatContent ? (
+            ) : displayFormat === "gallery" && chatContent ? (
               <GalleryReader content={chatContent} teaserLimit={5} />
             ) : (
               <ProseReader content={contentJson as Record<string, unknown>} teaserLimit={2} />
@@ -407,9 +411,9 @@ export default function ChapterPage() {
         ) : (
           // Full content
           <>
-            {story.format === "chat" && chatContent ? (
+            {displayFormat === "chat" && chatContent ? (
               <ChatReader content={chatContent} />
-            ) : story.format === "gallery" && chatContent ? (
+            ) : displayFormat === "gallery" && chatContent ? (
               <GalleryReader content={chatContent} />
             ) : (
               <ProseReader content={contentJson as Record<string, unknown>} />
