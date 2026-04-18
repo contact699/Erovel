@@ -270,6 +270,16 @@ export default function AdminDashboardPage() {
     log?: string[];
     error?: string;
   } | null>(null);
+  const [consolidating, setConsolidating] = useState(false);
+  const [consolidateResult, setConsolidateResult] = useState<{
+    summary?: {
+      chaptersChecked: number;
+      chaptersUpdated: number;
+      chaptersFailed: number;
+    };
+    log?: string[];
+    error?: string;
+  } | null>(null);
 
   async function runRehost() {
     setRehosting(true);
@@ -288,6 +298,28 @@ export default function AdminDashboardPage() {
       });
     } finally {
       setRehosting(false);
+    }
+  }
+
+  async function runConsolidate() {
+    setConsolidating(true);
+    setConsolidateResult(null);
+    try {
+      const res = await fetch("/api/admin/consolidate-import-characters", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setConsolidateResult({ error: data.error || `HTTP ${res.status}` });
+      } else {
+        setConsolidateResult(data);
+      }
+    } catch (err) {
+      setConsolidateResult({
+        error: err instanceof Error ? err.message : "Request failed",
+      });
+    } finally {
+      setConsolidating(false);
     }
   }
 
@@ -961,6 +993,7 @@ export default function AdminDashboardPage() {
         <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
           Maintenance
         </h2>
+        <div className="space-y-4">
         <div className="bg-surface border border-border rounded-xl p-5">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
@@ -1047,6 +1080,82 @@ export default function AdminDashboardPage() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="bg-surface border border-border rounded-xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
+              <Users size={18} className="text-indigo-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                Consolidate Character 1/2 on old imports
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Rewrites any pre-fix imported chapter that still has the
+                default &quot;Character 1&quot; / &quot;Character 2&quot; pair
+                into a single unnamed right-aligned speaker. Only touches rows
+                matching the exact default pattern — safe and idempotent.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={runConsolidate}
+                  disabled={consolidating}
+                >
+                  <RefreshCw
+                    size={14}
+                    className={consolidating ? "animate-spin" : ""}
+                  />
+                  {consolidating ? "Running…" : "Run consolidation"}
+                </Button>
+              </div>
+
+              {consolidateResult?.error && (
+                <div className="mt-4 text-sm text-danger">
+                  {consolidateResult.error}
+                </div>
+              )}
+
+              {consolidateResult?.summary && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Checked</p>
+                      <p className="text-lg font-bold mt-1">
+                        {consolidateResult.summary.chaptersChecked}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Updated</p>
+                      <p className="text-lg font-bold text-success mt-1">
+                        {consolidateResult.summary.chaptersUpdated}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Failed</p>
+                      <p className="text-lg font-bold text-danger mt-1">
+                        {consolidateResult.summary.chaptersFailed}
+                      </p>
+                    </div>
+                  </div>
+                  {consolidateResult.log &&
+                    consolidateResult.log.length > 0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted hover:text-foreground">
+                          View log ({consolidateResult.log.length} entries)
+                        </summary>
+                        <pre className="mt-2 p-3 bg-surface-hover rounded-lg overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">
+                          {consolidateResult.log.join("\n")}
+                        </pre>
+                      </details>
+                    )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         </div>
       </div>
 
