@@ -57,13 +57,24 @@ export async function POST(request: NextRequest) {
     const data = JSON.parse(body);
     console.log("[Veriff webhook] Payload:", JSON.stringify(data).slice(0, 500));
 
-    // Veriff sends different payload shapes depending on the webhook type
-    // fullauto: { status, verification: { id, code, vendorData, status, ... } }
-    // decisions: { verification: { id, vendorData, status, ... } }
-    const verification = data.verification;
+    // Veriff sends two webhook shapes depending on the webhook version:
+    //   v1.0.0 (fullauto): { sessionId, vendorData, status: "success"|"fail",
+    //                        eventType, data: { verification: { decision, decisionScore, ... } } }
+    //   legacy:            { status, verification: { id, vendorData, status, ... } }
+    const isV1 = data.version === "1.0.0" || typeof data.data === "object";
+    const sessionId: string | undefined = data.sessionId ?? data.verification?.id;
+    const userId: string | undefined = data.vendorData ?? data.verification?.vendorData;
+    // Decision field: "approved" | "declined" | "resubmission_requested" | ...
+    // Root-level `status: "success"` in v1.0.0 only means the webhook was delivered,
+    // NOT that the verification passed — the real outcome is inside data.verification.decision.
+    const decision: string | undefined = isV1
+      ? data.data?.verification?.decision
+      : data.verification?.status ?? data.status;
 
-    if (!verification?.id) {
-      console.error("[Veriff webhook] Missing verification.id");
+    if (!sessionId) {
+      console.error("[Veriff webhook] Missing sessionId / verification.id", {
+        shape: isV1 ? "v1.0.0" : "legacy",
+      });
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
@@ -73,25 +84,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 });
     }
 
-    const veriffStatus = verification.status || data.status;
-    const userId = verification.vendorData;
-
-    console.log(`[Veriff webhook] Session ${verification.id}, status: ${veriffStatus}, userId: ${userId}`);
+    console.log(
+      `[Veriff webhook] shape=${isV1 ? "v1.0.0" : "legacy"} session=${sessionId} decision=${decision} userId=${userId}`
+    );
 
     // Update verification session
     const { error: sessionError } = await supabase
       .from("verification_sessions")
-      .update({ status: veriffStatus, updated_at: new Date().toISOString() })
-      .eq("veriff_session_id", verification.id);
+      .update({
+        status: decision ?? "unknown",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("veriff_session_id", sessionId);
 
     if (sessionError) {
       console.error("[Veriff webhook] Session update error:", sessionError);
     } else {
-      console.log(`[Veriff webhook] Session ${verification.id} updated to ${veriffStatus}`);
+      console.log(`[Veriff webhook] Session ${sessionId} updated to ${decision}`);
     }
 
     // If approved, mark profile as verified
-    if (veriffStatus === "approved" && userId) {
+    if (decision === "approved" && userId) {
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ is_verified: true })
