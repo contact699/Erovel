@@ -110,9 +110,11 @@ export async function createStory(story: {
   status: "draft" | "published";
   is_gated: boolean;
   price?: number;
-  cover_image_url?: string;
+  cover_image_url?: string | null;
   visibility?: "public" | "unlisted";
   password_hash?: string | null;
+  ai_context?: Record<string, unknown> | null;
+  ai_generated?: boolean;
 }) {
   const supabase = createClient();
   if (!supabase) return null;
@@ -177,7 +179,7 @@ export async function createChapter(chapter: {
   chapter_number: number;
   title: string;
   status: "draft" | "published" | "scheduled";
-  publish_at?: string;
+  publish_at?: string | null;
   is_exclusive?: boolean;
 }) {
   const supabase = createClient();
