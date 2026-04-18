@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { TIP_PRESETS } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
-import { DollarSign, Heart } from "lucide-react";
+import { DollarSign, Heart, CreditCard, Wallet, Loader2 } from "lucide-react";
 
 interface TipButtonProps {
   creatorId: string;
@@ -15,6 +15,16 @@ interface TipButtonProps {
   variant?: "button" | "icon";
 }
 
+interface OnRampProviderInfo {
+  id: "moonpay" | "ramp";
+  label: string;
+  blurb: string;
+}
+
+type CheckoutStep =
+  | { step: "amount" }
+  | { step: "pay_method"; orderId: string; invoiceUrl: string; amountUsd: number };
+
 export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant = "button" }: TipButtonProps) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState<number | null>(null);
@@ -23,6 +33,39 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [checkout, setCheckout] = useState<CheckoutStep>({ step: "amount" });
+  const [providers, setProviders] = useState<OnRampProviderInfo[]>([]);
+  const [onRampLoadingId, setOnRampLoadingId] = useState<string | null>(null);
+
+  // Fetch available on-ramp providers once the modal opens. They only
+  // render if their env keys are configured server-side.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/payments/onramp/providers")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setProviders(d.providers ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setProviders([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  function resetForNextOpen() {
+    setOpen(false);
+    setSent(false);
+    setAmount(null);
+    setCustomAmount("");
+    setError(null);
+    setSubmitting(false);
+    setCheckout({ step: "amount" });
+    setOnRampLoadingId(null);
+  }
+
   async function handleCryptoPay() {
     const tipAmount = amount || parseFloat(customAmount);
     if (!tipAmount || tipAmount < 1) return;
@@ -30,9 +73,6 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
     setSubmitting(true);
     setError(null);
     try {
-      // BTCPay is the active crypto path. NowPayments code is left in place
-      // at /api/payments/nowpayments/create-invoice for fallback if BTCPay
-      // ever has issues, but is not currently wired to the UI.
       const response = await fetch("/api/payments/btcpay/create-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,48 +90,58 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
         return;
       }
 
-      const { invoice_url } = await response.json();
-      // Redirect to NowPayments hosted checkout
-      window.location.href = invoice_url;
+      const { invoice_url, order_id } = (await response.json()) as {
+        invoice_url: string;
+        order_id: string;
+      };
+
+      setCheckout({
+        step: "pay_method",
+        orderId: order_id,
+        invoiceUrl: invoice_url,
+        amountUsd: tipAmount,
+      });
     } catch {
       setError("Network error. Please try again.");
+    } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleSend() {
-    const tipAmount = amount || parseFloat(customAmount);
-    if (!tipAmount || tipAmount < 1) return;
-
-    // Wire through the splits engine. CCBill integration replaces this
-    // with a redirect → webhook flow that calls createPaymentWithSplits
-    // server-side. For now we exercise the engine directly to validate
-    // the resolver and snapshot pipeline.
-    const { createClient } = await import("@/lib/supabase/client");
-    const { useAuthStore } = await import("@/store/auth-store");
-    const supabase = createClient();
-    const reader = useAuthStore.getState().user;
-
-    if (supabase && reader) {
-      const { createPaymentWithSplits } = await import("@/lib/payments");
-      await createPaymentWithSplits({
-        supabase,
-        source_type: "tip",
-        reader_id: reader.id,
-        creator_id: creatorId,
-        story_id: storyId ?? null,
-        gross: tipAmount,
-        currency: "USD",
+  async function handleOnRamp(providerId: OnRampProviderInfo["id"]) {
+    if (checkout.step !== "pay_method") return;
+    setOnRampLoadingId(providerId);
+    setError(null);
+    try {
+      const res = await fetch("/api/payments/onramp/url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: checkout.orderId,
+          provider: providerId,
+        }),
       });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setError(data.error || `Couldn't open ${providerId} — try the crypto wallet option.`);
+        setOnRampLoadingId(null);
+        return;
+      }
+      const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        // Popup blocked — fall back to full-page redirect.
+        window.location.href = data.url;
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setOnRampLoadingId(null);
     }
+  }
 
-    setSent(true);
-    setTimeout(() => {
-      setOpen(false);
-      setSent(false);
-      setAmount(null);
-      setCustomAmount("");
-    }, 2000);
+  function handleWalletPay() {
+    if (checkout.step !== "pay_method") return;
+    window.location.href = checkout.invoiceUrl;
   }
 
   const trigger =
@@ -109,12 +159,81 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
   return (
     <>
       {trigger}
-      <Modal open={open} onClose={() => setOpen(false)} title={`Tip ${creatorName}`} size="sm">
+      <Modal
+        open={open}
+        onClose={resetForNextOpen}
+        title={
+          checkout.step === "pay_method"
+            ? `Pay ${formatCurrency(checkout.amountUsd)}`
+            : `Tip ${creatorName}`
+        }
+        size="sm"
+      >
         {sent ? (
           <div className="text-center py-6 space-y-2">
             <Heart size={32} className="text-accent mx-auto" />
             <p className="font-medium">Tip sent!</p>
             <p className="text-sm text-muted">Thank you for supporting {creatorName}.</p>
+          </div>
+        ) : checkout.step === "pay_method" ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Pick how you want to pay. The tip arrives at {creatorName} either way.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleWalletPay}
+              className="w-full flex items-center gap-3 p-4 rounded-lg border border-border hover:bg-surface-hover transition-colors cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <Wallet size={18} className="text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Pay from a crypto wallet</p>
+                <p className="text-xs text-muted">Bitcoin or Lightning — you&apos;re redirected to the invoice page.</p>
+              </div>
+            </button>
+
+            {providers.map((p) => {
+              const isLoading = onRampLoadingId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleOnRamp(p.id)}
+                  disabled={isLoading}
+                  className="w-full flex items-center gap-3 p-4 rounded-lg border border-border hover:bg-surface-hover transition-colors cursor-pointer text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
+                    {isLoading ? (
+                      <Loader2 size={18} className="animate-spin text-muted" />
+                    ) : (
+                      <CreditCard size={18} className="text-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Buy crypto with card — {p.label}</p>
+                    <p className="text-xs text-muted">{p.blurb}</p>
+                  </div>
+                </button>
+              );
+            })}
+
+            {providers.length === 0 && (
+              <p className="text-xs text-muted text-center pt-1">
+                Card checkout isn&apos;t available yet — use a crypto wallet above.
+              </p>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-400 text-center">{error}</p>
+            )}
+
+            <div className="text-[11px] text-muted text-center pt-1">
+              Card purchases go through licensed crypto exchanges that charge a
+              small fee on top of the tip amount.
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -151,19 +270,13 @@ export function TipButton({ creatorId, creatorName, storyId, storyTitle, variant
               />
             </div>
 
-            <Button onClick={handleSend} className="w-full" disabled={!amount && !customAmount}>
-              Send {amount ? formatCurrency(amount) : customAmount ? formatCurrency(parseFloat(customAmount)) : "Tip"}
-            </Button>
-
-            <div className="text-center text-xs text-muted">— or —</div>
-
             <Button
-              variant="secondary"
               onClick={handleCryptoPay}
               className="w-full"
+              loading={submitting}
               disabled={submitting || (!amount && !customAmount)}
             >
-              Pay with crypto
+              Continue to payment
             </Button>
 
             {error && (
