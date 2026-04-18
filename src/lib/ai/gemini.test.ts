@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { generateStructured } from "./gemini";
+import { generateStructured, generateStream } from "./gemini";
 
 const ORIGINAL_FETCH = global.fetch;
 
@@ -98,5 +98,76 @@ describe("generateStructured", () => {
         responseSchema: { type: "object" },
       })
     ).rejects.toThrow(/GEMINI_API_KEY/);
+  });
+});
+
+function sseStream(chunks: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
+      }
+      controller.close();
+    },
+  });
+}
+
+describe("generateStream", () => {
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = "test-key";
+  });
+  afterEach(() => {
+    global.fetch = ORIGINAL_FETCH;
+    vi.restoreAllMocks();
+  });
+
+  it("yields text deltas as they arrive", async () => {
+    const body = sseStream([
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: "Hel" }] } }] }),
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: "lo" }] } }] }),
+      JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "!" }] }, finishReason: "STOP" }],
+        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 3 },
+      }),
+    ]);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, body }) as unknown as typeof fetch;
+
+    const deltas: string[] = [];
+    let final: Awaited<ReturnType<typeof generateStream>>["final"] | null = null;
+    for await (const event of generateStream({
+      systemPrompt: "sys",
+      userPrompt: "user",
+      responseSchema: { type: "object" },
+    })) {
+      if (event.type === "delta") deltas.push(event.text);
+      if (event.type === "final") final = event;
+    }
+
+    expect(deltas.join("")).toBe("Hello!");
+    expect(final).toBeTruthy();
+    expect(final?.tokensIn).toBe(10);
+    expect(final?.tokensOut).toBe(3);
+    expect(final?.rawText).toBe("Hello!");
+  });
+
+  it("throws SafetyRefusalError on a stream that ends with SAFETY", async () => {
+    const body = sseStream([
+      JSON.stringify({
+        candidates: [{ content: { parts: [] }, finishReason: "SAFETY" }],
+      }),
+    ]);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, body }) as unknown as typeof fetch;
+
+    const run = async () => {
+      for await (const _ of generateStream({
+        systemPrompt: "x",
+        userPrompt: "y",
+        responseSchema: { type: "object" },
+      })) {
+        // consume
+      }
+    };
+    await expect(run()).rejects.toThrow(/SAFETY/);
   });
 });

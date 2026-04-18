@@ -94,4 +94,122 @@ export async function generateStructured<T>(
   };
 }
 
+export type StreamEvent =
+  | { type: "delta"; text: string }
+  | {
+      type: "final";
+      rawText: string;
+      parsed: unknown;
+      tokensIn: number;
+      tokensOut: number;
+      model: string;
+    };
+
+export async function* generateStream(
+  args: GenerateStructuredArgs
+): AsyncGenerator<StreamEvent, void, unknown> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set");
+  }
+
+  const url =
+    `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:streamGenerateContent` +
+    `?alt=sse&key=${apiKey}`;
+
+  const body = {
+    systemInstruction: { parts: [{ text: args.systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: args.userPrompt }] }],
+    generationConfig: {
+      temperature: args.temperature ?? 0.9,
+      topP: 0.95,
+      maxOutputTokens: args.maxOutputTokens ?? 4000,
+      responseMimeType: "application/json",
+      responseSchema: args.responseSchema,
+    },
+    safetySettings: SAFETY_SETTINGS,
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Gemini stream HTTP ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let rawText = "";
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let sawSafety = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE frames are separated by \n\n; each frame has one or more `data: ` lines.
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+
+      for (const line of frame.split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (!payload) continue;
+        let chunk: unknown;
+        try {
+          chunk = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+
+        const c = (chunk as {
+          candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+          usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        }).candidates?.[0];
+        const deltaText = c?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+        if (deltaText) {
+          rawText += deltaText;
+          yield { type: "delta", text: deltaText };
+        }
+        if (c?.finishReason === "SAFETY") sawSafety = true;
+
+        const um = (chunk as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata;
+        if (um) {
+          tokensIn = um.promptTokenCount ?? tokensIn;
+          tokensOut = um.candidatesTokenCount ?? tokensOut;
+        }
+      }
+    }
+  }
+
+  if (sawSafety) {
+    throw new SafetyRefusalError("SAFETY");
+  }
+
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    // Leave parsed as null — route handler may choose to retry or return raw.
+  }
+
+  yield {
+    type: "final",
+    rawText,
+    parsed,
+    tokensIn,
+    tokensOut,
+    model: GEMINI_MODEL,
+  };
+}
+
 export { GEMINI_MODEL };
