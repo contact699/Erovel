@@ -92,8 +92,40 @@ export const useAuthStore = create<AuthState>()(
           .select("*")
           .eq("id", authUser.id)
           .single();
-        if (profile) {
-          set({ user: profile as Profile, isAuthenticated: true });
+        if (!profile) return;
+
+        set({ user: profile as Profile, isAuthenticated: true });
+
+        // Defense-in-depth: if a creator comes back unverified, silently
+        // poll Veriff once per browser session. Catches users whose webhook
+        // never fired — e.g. closed the tab right after approval.
+        if (
+          typeof window !== "undefined" &&
+          profile.role === "creator" &&
+          !profile.is_verified
+        ) {
+          const dedupeKey = `veriff-check:${authUser.id}`;
+          if (!sessionStorage.getItem(dedupeKey)) {
+            sessionStorage.setItem(dedupeKey, "1");
+            void (async () => {
+              try {
+                const res = await fetch("/api/veriff/check", {
+                  method: "POST",
+                });
+                const data = await res.json();
+                if (data.verified) {
+                  const { data: fresh } = await supabase
+                    .from("profiles")
+                    .select("*")
+                    .eq("id", authUser.id)
+                    .single();
+                  if (fresh) set({ user: fresh as Profile });
+                }
+              } catch {
+                // silent — caller will retry on next session
+              }
+            })();
+          }
         }
       },
     }),
