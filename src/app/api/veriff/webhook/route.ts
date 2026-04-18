@@ -35,9 +35,15 @@ export async function POST(request: NextRequest) {
         .digest("hex");
 
       if (signature.toLowerCase() !== expectedSignature.toLowerCase()) {
+        // Full signatures logged (not secret themselves — secret is used to
+        // compute them). Helps diagnose whether the hashes are totally
+        // different (secret mismatch) or similar (body-transform issue).
         console.error("[Veriff webhook] Invalid signature", {
-          received: signature.slice(0, 16) + "...",
-          expected: expectedSignature.slice(0, 16) + "...",
+          received: signature,
+          expected: expectedSignature,
+          bodyLength: body.length,
+          bodyPreview: body.slice(0, 120),
+          secretLen: secret.length,
         });
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
