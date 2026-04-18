@@ -63,8 +63,16 @@ export async function POST(request: NextRequest) {
       .map(
         (img: { id: string; link: string; description: string | null; position: number }) => {
           const url = img.link;
-          const ext = url.split(".").pop()?.toLowerCase() || "";
-          const isVideo = ["mp4", "webm", "mov"].includes(ext);
+          // Parse extension from the pathname so query strings don't
+          // poison detection (e.g. xxx.mp4?v=1 would otherwise become "mp4?v=1").
+          let ext = "";
+          try {
+            const pathname = new URL(url).pathname;
+            ext = pathname.split(".").pop()?.toLowerCase() || "";
+          } catch {
+            ext = url.split(/[?#]/)[0].split(".").pop()?.toLowerCase() || "";
+          }
+          const isVideo = ["mp4", "webm", "mov", "m4v"].includes(ext);
           return {
             id: img.id,
             url,

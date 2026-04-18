@@ -29,6 +29,7 @@ import {
   CheckCircle,
   RefreshCw,
   ImageIcon,
+  Video,
 } from "lucide-react";
 
 // --- Types ---
@@ -280,6 +281,17 @@ export default function AdminDashboardPage() {
     log?: string[];
     error?: string;
   } | null>(null);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [reclassifyResult, setReclassifyResult] = useState<{
+    summary?: {
+      chaptersChecked: number;
+      chaptersUpdated: number;
+      chaptersFailed: number;
+      messagesReclassified: number;
+    };
+    log?: string[];
+    error?: string;
+  } | null>(null);
 
   async function runRehost() {
     setRehosting(true);
@@ -320,6 +332,28 @@ export default function AdminDashboardPage() {
       });
     } finally {
       setConsolidating(false);
+    }
+  }
+
+  async function runReclassify() {
+    setReclassifying(true);
+    setReclassifyResult(null);
+    try {
+      const res = await fetch("/api/admin/reclassify-video-media", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReclassifyResult({ error: data.error || `HTTP ${res.status}` });
+      } else {
+        setReclassifyResult(data);
+      }
+    } catch (err) {
+      setReclassifyResult({
+        error: err instanceof Error ? err.message : "Request failed",
+      });
+    } finally {
+      setReclassifying(false);
     }
   }
 
@@ -1148,6 +1182,85 @@ export default function AdminDashboardPage() {
                         </summary>
                         <pre className="mt-2 p-3 bg-surface-hover rounded-lg overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">
                           {consolidateResult.log.join("\n")}
+                        </pre>
+                      </details>
+                    )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface border border-border rounded-xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
+              <Video size={18} className="text-rose-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Reclassify misclassified videos</p>
+              <p className="text-xs text-muted mt-1">
+                Some imported chapters store MP4/WebM/MOV files with
+                media_type=&quot;image&quot;, which breaks the reader. This
+                sweeps chapter_content and flips any message whose media_url
+                is a video file to media_type=&quot;video&quot;. Idempotent.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={runReclassify}
+                  disabled={reclassifying}
+                >
+                  <RefreshCw
+                    size={14}
+                    className={reclassifying ? "animate-spin" : ""}
+                  />
+                  {reclassifying ? "Running…" : "Run reclassification"}
+                </Button>
+              </div>
+
+              {reclassifyResult?.error && (
+                <div className="mt-4 text-sm text-danger">
+                  {reclassifyResult.error}
+                </div>
+              )}
+
+              {reclassifyResult?.summary && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Checked</p>
+                      <p className="text-lg font-bold mt-1">
+                        {reclassifyResult.summary.chaptersChecked}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Chapters updated</p>
+                      <p className="text-lg font-bold text-success mt-1">
+                        {reclassifyResult.summary.chaptersUpdated}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Messages fixed</p>
+                      <p className="text-lg font-bold text-success mt-1">
+                        {reclassifyResult.summary.messagesReclassified}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Failed</p>
+                      <p className="text-lg font-bold text-danger mt-1">
+                        {reclassifyResult.summary.chaptersFailed}
+                      </p>
+                    </div>
+                  </div>
+                  {reclassifyResult.log &&
+                    reclassifyResult.log.length > 0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted hover:text-foreground">
+                          View log ({reclassifyResult.log.length} entries)
+                        </summary>
+                        <pre className="mt-2 p-3 bg-surface-hover rounded-lg overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">
+                          {reclassifyResult.log.join("\n")}
                         </pre>
                       </details>
                     )}
