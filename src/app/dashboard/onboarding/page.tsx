@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
@@ -23,6 +23,7 @@ import {
   ExternalLink,
   AlertCircle,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 
 export default function OnboardingPage() {
@@ -40,6 +41,46 @@ export default function OnboardingPage() {
   const [veriffUrl, setVeriffUrl] = useState<string | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyChecking, setVerifyChecking] = useState(false);
+  const [verifyPolling, setVerifyPolling] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isVerified = user?.is_verified ?? false;
+
+  // Auto-poll for verification status once Veriff window is opened
+  useEffect(() => {
+    if (!veriffUrl || step !== 2 || isVerified) return;
+
+    setVerifyPolling(true);
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes at 5s intervals
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setVerifyPolling(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/veriff/check", { method: "POST" });
+        const data = await res.json();
+        if (data.verified) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setVerifyPolling(false);
+          await refreshProfile();
+          toast("success", "Identity verified!");
+          setStep(3);
+        }
+      } catch {
+        // silently retry
+      }
+    }, 5000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setVerifyPolling(false);
+    };
+  }, [veriffUrl, step, isVerified, refreshProfile]);
 
   if (!user) {
     return (
@@ -94,6 +135,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/veriff/check", { method: "POST" });
       const data = await res.json();
       if (data.verified) {
+        if (pollRef.current) clearInterval(pollRef.current);
         await refreshProfile();
         toast("success", "Identity verified!");
         setStep(3);
@@ -103,6 +145,7 @@ export default function OnboardingPage() {
       await refreshProfile();
       const state = useAuthStore.getState();
       if (state.user?.is_verified) {
+        if (pollRef.current) clearInterval(pollRef.current);
         toast("success", "Identity verified!");
         setStep(3);
       } else {
@@ -266,6 +309,13 @@ export default function OnboardingPage() {
                   <ExternalLink size={16} />
                   Open Verification
                 </a>
+
+                {verifyPolling && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted">
+                    <Loader2 size={14} className="animate-spin" />
+                    Checking verification status automatically...
+                  </div>
+                )}
 
                 <Button
                   className="w-full"

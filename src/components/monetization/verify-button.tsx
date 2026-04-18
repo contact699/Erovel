@@ -1,17 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "@/components/ui/toast";
-import { ShieldCheck, ExternalLink, AlertCircle, CheckCircle } from "lucide-react";
+import { ShieldCheck, ExternalLink, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 
 export function VerifyButton() {
   const { user, refreshProfile } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [veriffUrl, setVeriffUrl] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-poll for verification status once Veriff window is opened
+  useEffect(() => {
+    if (!veriffUrl || !open) return;
+
+    setPolling(true);
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes at 5s intervals
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setPolling(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/veriff/check", { method: "POST" });
+        const data = await res.json();
+        if (data.verified) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setPolling(false);
+          await refreshProfile();
+          toast("success", "Identity verified!");
+          setOpen(false);
+          setVeriffUrl(null);
+        }
+      } catch {
+        // silently retry
+      }
+    }, 5000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setPolling(false);
+    };
+  }, [veriffUrl, open, refreshProfile]);
 
   if (!user || user.role !== "creator") return null;
 
@@ -96,17 +136,24 @@ export function VerifyButton() {
                 Open Verification
               </a>
 
+              {polling && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted">
+                  <Loader2 size={14} className="animate-spin" />
+                  Checking verification status automatically...
+                </div>
+              )}
+
               <Button
                 variant="secondary"
                 className="w-full"
                 loading={loading}
                 onClick={async () => {
                   setLoading(true);
-                  // Poll the Veriff API to check status
                   try {
                     const res = await fetch("/api/veriff/check", { method: "POST" });
                     const data = await res.json();
                     if (data.verified) {
+                      if (pollRef.current) clearInterval(pollRef.current);
                       await refreshProfile();
                       toast("success", "Identity verified!");
                       setOpen(false);
@@ -120,6 +167,7 @@ export function VerifyButton() {
                   await refreshProfile();
                   const state = useAuthStore.getState();
                   if (state.user?.is_verified) {
+                    if (pollRef.current) clearInterval(pollRef.current);
                     toast("success", "Identity verified!");
                     setOpen(false);
                     setVeriffUrl(null);
