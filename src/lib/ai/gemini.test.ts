@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { generateStructured, generateStream } from "./gemini";
+import { generateStructured, generateStream, type StreamEvent } from "./gemini";
 
 const ORIGINAL_FETCH = global.fetch;
 
@@ -134,7 +134,7 @@ describe("generateStream", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, body }) as unknown as typeof fetch;
 
     const deltas: string[] = [];
-    let final: Awaited<ReturnType<typeof generateStream>>["final"] | null = null;
+    let final: Extract<StreamEvent, { type: "final" }> | null = null;
     for await (const event of generateStream({
       systemPrompt: "sys",
       userPrompt: "user",
