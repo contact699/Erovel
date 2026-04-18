@@ -42,8 +42,9 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
 
           return (
             <div key={msg.id}>
-              {/* Character name label */}
-              {showName && (
+              {/* Character name label — hidden when the character has no name
+                  (e.g. imported galleries use a single unnamed speaker) */}
+              {showName && char.name && (
                 <div
                   className={`flex items-center gap-2 mb-1 mt-4 ${
                     isRight ? "justify-end" : "justify-start"
@@ -189,38 +190,40 @@ export function ChatReader({ content, teaserLimit }: ChatReaderProps) {
           );
         })}
 
-        {/* Typing indicator (shown at end for atmosphere) */}
-        {!teaserLimit && (
-          <div className="flex justify-start mt-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Avatar
-                src={characters.find((c) => c.alignment === "left")?.avatar_url ?? null}
-                name={characters.find((c) => c.alignment === "left")?.name ?? ""}
-                size="sm"
-              />
+        {/* Typing indicator (shown at end for atmosphere) — only when a
+            left-aligned character exists (imports have a single right
+            speaker, so the indicator would just look like noise). */}
+        {!teaserLimit && characters.some((c) => c.alignment === "left") && (
+          <>
+            <div className="flex justify-start mt-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Avatar
+                  src={characters.find((c) => c.alignment === "left")?.avatar_url ?? null}
+                  name={characters.find((c) => c.alignment === "left")?.name ?? ""}
+                  size="sm"
+                />
+              </div>
             </div>
-          </div>
-        )}
-        {!teaserLimit && (
-          <div className="flex justify-start">
-            <div
-              className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
-              style={{ backgroundColor: "var(--surface-hover)" }}
-            >
-              <span
-                className="w-2 h-2 rounded-full bg-muted animate-bounce"
-                style={{ animationDelay: "0ms" }}
-              />
-              <span
-                className="w-2 h-2 rounded-full bg-muted animate-bounce"
-                style={{ animationDelay: "150ms" }}
-              />
-              <span
-                className="w-2 h-2 rounded-full bg-muted animate-bounce"
-                style={{ animationDelay: "300ms" }}
-              />
+            <div className="flex justify-start">
+              <div
+                className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
+                style={{ backgroundColor: "var(--surface-hover)" }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full bg-muted animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-muted animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-muted animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

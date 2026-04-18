@@ -308,13 +308,15 @@ export default function ImportPage() {
     const selected = images.filter((img) => img.selected);
 
     if (format === "chat" || format === "gallery") {
+      // Imports are captioned galleries, not multi-speaker dialogue.
+      // One unnamed right-aligned "speaker" — the reader hides the
+      // label row when the name is empty.
       const characters = [
-        { id: "char-1", name: "Character 1", color: "#3B82F6", alignment: "left" as const },
-        { id: "char-2", name: "Character 2", color: "#10B981", alignment: "right" as const },
+        { id: "char-1", name: "", color: "#10B981", alignment: "right" as const },
       ];
       const messages = selected.map((media, i) => ({
         id: `msg-${i}`,
-        character_id: i % 2 === 0 ? "char-1" : "char-2",
+        character_id: "char-1",
         text: media.description || "",
         media_url: media.url,
         media_type: media.type,
