@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   CheckCircle,
   RefreshCw,
+  ImageIcon,
 } from "lucide-react";
 
 // --- Types ---
@@ -257,6 +258,38 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [rehosting, setRehosting] = useState(false);
+  const [rehostResult, setRehostResult] = useState<{
+    summary?: {
+      imagesRehosted: number;
+      imagesFailed: number;
+      imagesBlocked: number;
+      chaptersUpdated: number;
+      coversUpdated: number;
+    };
+    log?: string[];
+    error?: string;
+  } | null>(null);
+
+  async function runRehost() {
+    setRehosting(true);
+    setRehostResult(null);
+    try {
+      const res = await fetch("/api/admin/rehost-migrate", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setRehostResult({ error: data.error || `HTTP ${res.status}` });
+      } else {
+        setRehostResult(data);
+      }
+    } catch (err) {
+      setRehostResult({
+        error: err instanceof Error ? err.message : "Request failed",
+      });
+    } finally {
+      setRehosting(false);
+    }
+  }
 
   async function fetchStats(isRefresh = false) {
     if (isRefresh) {
@@ -919,6 +952,100 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== Maintenance ===== */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
+          Maintenance
+        </h2>
+        <div className="bg-surface border border-border rounded-xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <ImageIcon size={18} className="text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Re-host imgchest images</p>
+              <p className="text-xs text-muted mt-1">
+                Download any remaining imgchest.com URLs in chapter content and
+                story covers, moderate them, and re-upload to BunnyCDN. Safe to
+                re-run — only rows still pointing at imgchest are processed.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={runRehost}
+                  disabled={rehosting}
+                >
+                  <RefreshCw
+                    size={14}
+                    className={rehosting ? "animate-spin" : ""}
+                  />
+                  {rehosting ? "Running…" : "Run migration"}
+                </Button>
+                {rehosting && (
+                  <span className="text-xs text-muted">
+                    This may take a while if many images need downloading.
+                  </span>
+                )}
+              </div>
+
+              {rehostResult?.error && (
+                <div className="mt-4 text-sm text-danger">
+                  {rehostResult.error}
+                </div>
+              )}
+
+              {rehostResult?.summary && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Re-hosted</p>
+                      <p className="text-lg font-bold text-success mt-1">
+                        {rehostResult.summary.imagesRehosted}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Failed</p>
+                      <p className="text-lg font-bold text-danger mt-1">
+                        {rehostResult.summary.imagesFailed}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Blocked</p>
+                      <p className="text-lg font-bold text-amber-500 mt-1">
+                        {rehostResult.summary.imagesBlocked}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Chapters updated</p>
+                      <p className="text-lg font-bold mt-1">
+                        {rehostResult.summary.chaptersUpdated}
+                      </p>
+                    </div>
+                    <div className="bg-surface-hover rounded-lg p-3">
+                      <p className="text-muted">Covers updated</p>
+                      <p className="text-lg font-bold mt-1">
+                        {rehostResult.summary.coversUpdated}
+                      </p>
+                    </div>
+                  </div>
+                  {rehostResult.log && rehostResult.log.length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted hover:text-foreground">
+                        View log ({rehostResult.log.length} entries)
+                      </summary>
+                      <pre className="mt-2 p-3 bg-surface-hover rounded-lg overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">
+                        {rehostResult.log.join("\n")}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

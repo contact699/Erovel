@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminRoute } from "@/lib/admin-auth";
 import { uploadToBunny } from "@/lib/bunny";
 import { moderateImage } from "@/lib/moderation";
 import { generateId } from "@/lib/utils";
 
+export const maxDuration = 300;
+
 const IMGCHEST_REGEX = /https?:\/\/[^"'\s]*imgchest\.com[^"'\s]*/g;
 const VIDEO_EXTENSIONS = ["mp4", "webm", "mov"];
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey);
-}
 
 /**
  * Recursively walk a JSON structure and replace any string values
@@ -57,15 +52,12 @@ async function downloadImage(
 }
 
 export async function POST() {
-  try {
-    const supabase = getAdminClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { error: "Admin client not configured" },
-        { status: 503 }
-      );
-    }
+  const { supabase, response } = await requireAdminRoute();
+  if (!supabase || response) {
+    return response ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  try {
     const summary = {
       imagesRehosted: 0,
       imagesFailed: 0,
