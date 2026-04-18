@@ -67,6 +67,44 @@ export async function createBTCPayInvoice(
 }
 
 /**
+ * Fetch the payment-method details (addresses, amounts) for an invoice.
+ * BTCPay allocates addresses lazily — calling this post-creation forces
+ * allocation so downstream flows (e.g. on-ramp deep links) can reference
+ * the actual BTC / Lightning destination.
+ */
+export interface BTCPayPaymentMethod {
+  paymentMethod: string;
+  destination: string | null;
+  amount: string;
+  due: string;
+  rate: string;
+  paymentMethodPaid: string;
+  totalPaid: string;
+  // Several additional fields exist; we only narrow to what we use.
+}
+
+export async function getBTCPayInvoicePaymentMethods(
+  invoiceId: string
+): Promise<BTCPayPaymentMethod[]> {
+  const url =
+    `${getBaseUrl()}/api/v1/stores/${getStoreId()}` +
+    `/invoices/${invoiceId}/payment-methods`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `token ${getApiKey()}` },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "<unreadable>");
+    throw new Error(
+      `BTCPay getPaymentMethods failed: ${response.status} ${response.statusText} — ${errorBody}`
+    );
+  }
+
+  return (await response.json()) as BTCPayPaymentMethod[];
+}
+
+/**
  * Quick health check — fetches the BTCPay server status.
  * Returns true if reachable and synchronized.
  */
