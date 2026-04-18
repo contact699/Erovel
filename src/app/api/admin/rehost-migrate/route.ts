@@ -34,20 +34,41 @@ function replaceUrlsInJson(
 }
 
 /**
- * Download an image from a URL and return its bytes and file extension.
+ * Download an image from a URL and return its bytes and file extension,
+ * or a failure reason. Most CDNs (imgchest included) 403 default
+ * Node-fetch User-Agents, so we impersonate a browser.
  */
 async function downloadImage(
   url: string
-): Promise<{ buffer: Uint8Array; ext: string } | null> {
+): Promise<
+  | { ok: true; buffer: Uint8Array; ext: string }
+  | { ok: false; reason: string }
+> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept:
+          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://imgchest.com/",
+      },
+      redirect: "follow",
+    });
+    if (!response.ok) {
+      return { ok: false, reason: `HTTP ${response.status}` };
+    }
     const arrayBuffer = await response.arrayBuffer();
     const urlPath = new URL(url).pathname;
     const ext = urlPath.split(".").pop()?.toLowerCase() || "jpg";
-    return { buffer: new Uint8Array(arrayBuffer), ext };
-  } catch {
-    return null;
+    return { ok: true, buffer: new Uint8Array(arrayBuffer), ext };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: err instanceof Error ? err.message : "fetch threw",
+    };
   }
 }
 
@@ -109,8 +130,8 @@ export async function POST() {
 
       for (const url of uniqueUrls) {
         const downloaded = await downloadImage(url);
-        if (!downloaded) {
-          log.push(`FAIL: ${url} - download failed`);
+        if (!downloaded.ok) {
+          log.push(`FAIL: ${url} - ${downloaded.reason}`);
           summary.imagesFailed++;
           continue;
         }
@@ -184,8 +205,8 @@ export async function POST() {
       if (!url) continue;
 
       const downloaded = await downloadImage(url);
-      if (!downloaded) {
-        log.push(`FAIL: ${url} - download failed (cover)`);
+      if (!downloaded.ok) {
+        log.push(`FAIL: ${url} - ${downloaded.reason} (cover)`);
         summary.imagesFailed++;
         continue;
       }
