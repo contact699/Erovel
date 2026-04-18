@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import type { Profile } from "@/lib/types";
+import { toast } from "@/components/ui/toast";
 import {
   Search,
   ExternalLink,
@@ -54,6 +55,34 @@ export default function AdminUsersPage() {
   const [actionedUsers, setActionedUsers] = useState<
     Record<string, "suspended" | "banned">
   >({});
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  async function verifyUser(target: Profile) {
+    setVerifyingId(target.id);
+    try {
+      const res = await fetch("/api/admin/verify-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: target.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast("error", data.error || `Failed (HTTP ${res.status})`);
+        return;
+      }
+      setUsers((prev) =>
+        prev.map((u) => (u.id === target.id ? { ...u, is_verified: true } : u))
+      );
+      toast("success", `@${target.username} verified`);
+    } catch (err) {
+      toast(
+        "error",
+        err instanceof Error ? err.message : "Verification failed"
+      );
+    } finally {
+      setVerifyingId(null);
+    }
+  }
 
   const fetchUsers = useCallback(async () => {
     const supabase = createClient();
@@ -291,6 +320,24 @@ export default function AdminUsersPage() {
                           >
                             <ExternalLink size={14} />
                           </Button>
+                          {u.role === "creator" && !u.is_verified && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Manually verify"
+                              onClick={() => verifyUser(u)}
+                              disabled={verifyingId === u.id}
+                            >
+                              {verifyingId === u.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <ShieldCheck
+                                  size={14}
+                                  className="text-success"
+                                />
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -367,7 +414,7 @@ export default function AdminUsersPage() {
                       <Badge variant="success">Active</Badge>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -378,6 +425,21 @@ export default function AdminUsersPage() {
                       <ExternalLink size={13} />
                       Profile
                     </Button>
+                    {u.role === "creator" && !u.is_verified && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => verifyUser(u)}
+                        disabled={verifyingId === u.id}
+                      >
+                        {verifyingId === u.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <ShieldCheck size={13} />
+                        )}
+                        Verify
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
