@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-hmac-signature");
     const secret = process.env.VERIFF_API_SECRET;
 
+    console.log("[Veriff webhook] Incoming request", {
+      hasSignature: !!signature,
+      hasSecret: !!secret,
+      bodyLength: body.length,
+      contentType: request.headers.get("content-type"),
+    });
+
     // Verify webhook signature
     if (secret && signature) {
       const expectedSignature = crypto
@@ -28,13 +35,21 @@ export async function POST(request: NextRequest) {
         .digest("hex");
 
       if (signature.toLowerCase() !== expectedSignature.toLowerCase()) {
-        console.error("[Veriff webhook] Invalid signature");
+        console.error("[Veriff webhook] Invalid signature", {
+          received: signature.slice(0, 16) + "...",
+          expected: expectedSignature.slice(0, 16) + "...",
+        });
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
+      console.log("[Veriff webhook] Signature verified");
+    } else if (!secret) {
+      console.warn("[Veriff webhook] VERIFF_API_SECRET not set — skipping signature check");
+    } else if (!signature) {
+      console.warn("[Veriff webhook] No x-hmac-signature header — request may not be from Veriff");
     }
 
     const data = JSON.parse(body);
-    console.log("[Veriff webhook] Received:", JSON.stringify(data).slice(0, 500));
+    console.log("[Veriff webhook] Payload:", JSON.stringify(data).slice(0, 500));
 
     // Veriff sends different payload shapes depending on the webhook type
     // fullauto: { status, verification: { id, code, vendorData, status, ... } }
@@ -65,6 +80,8 @@ export async function POST(request: NextRequest) {
 
     if (sessionError) {
       console.error("[Veriff webhook] Session update error:", sessionError);
+    } else {
+      console.log(`[Veriff webhook] Session ${verification.id} updated to ${veriffStatus}`);
     }
 
     // If approved, mark profile as verified
@@ -79,6 +96,8 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[Veriff webhook] Profile ${userId} marked as verified`);
       }
+    } else if (!userId) {
+      console.warn("[Veriff webhook] No vendorData (userId) in payload — cannot update profile");
     }
 
     return NextResponse.json({ received: true });

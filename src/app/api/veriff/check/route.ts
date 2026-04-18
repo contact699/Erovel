@@ -68,10 +68,14 @@ export async function POST() {
         headers: { "X-AUTH-CLIENT": apiKey },
       });
 
-      if (!veriffRes.ok) continue;
+      if (!veriffRes.ok) {
+        console.warn(`[Veriff check] API returned ${veriffRes.status} for session ${session.veriff_session_id}`);
+        continue;
+      }
 
       const veriffData = await veriffRes.json();
       const veriffStatus = veriffData.verification?.status || veriffData.status;
+      console.log(`[Veriff check] Session ${session.veriff_session_id}: ${veriffStatus}`, JSON.stringify(veriffData).slice(0, 300));
 
       // Update session in DB
       await adminClient
