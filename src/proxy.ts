@@ -10,6 +10,6 @@ export async function proxy(request: NextRequest) {
 // signature mismatches on incoming signed payloads.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icon-.*\\.png|api/veriff/webhook|api/payments/btcpay/webhook|api/payments/nowpayments/ipn|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icon-.*\\.png|api/veriff/webhook|api/payments/btcpay/webhook|api/payments/nowpayments/ipn|api/payments/moonpay/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
